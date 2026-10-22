@@ -11,7 +11,7 @@
     <!-- Firebase SDK v9 Module -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDhtAe06W15Cv0EpCGa3xa3-X9yVVslG2Y",
@@ -24,6 +24,40 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+
+        // جلب إعدادات تيليجرام سحابياً عند تحميل اللوحة
+        async function loadCloudTelegramSettings() {
+            try {
+                const docRef = doc(db, "settings", "telegram");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('telegramToken').value = data.botToken || '';
+                    document.getElementById('telegramChatId').value = data.chatId || '';
+                }
+            } catch (err) {
+                console.error("خطأ في جلب إعدادات تيليجرام من السحابة:", err);
+            }
+        }
+        window.loadCloudTelegramSettings = loadCloudTelegramSettings;
+
+        // حفظ أو تبديل إعدادات تيليجرام سحابياً لتشمل كل الأجهزة
+        window.saveCloudTelegramSettings = async function() {
+            const botToken = document.getElementById('telegramToken').value.trim();
+            const chatId = document.getElementById('telegramChatId').value.trim();
+
+            try {
+                await setDoc(doc(db, "settings", "telegram"), {
+                    botToken: botToken,
+                    chatId: chatId,
+                    updatedAt: new Date()
+                }, { merge: true });
+
+                alert('تم تحديث وحفظ إعدادات تيليجرام سحابياً لجميع أجهزة الإدارة بنجاح!');
+            } catch (err) {
+                alert('خطأ أثناء الحفظ بالسحابة: ' + err.message);
+            }
+        };
 
         // مراقبة المنتجات في الوقت الفعلي من السحابة
         onSnapshot(collection(db, "products"), (snapshot) => {
@@ -58,7 +92,7 @@
             tbody.innerHTML = html;
         });
 
-        // مراقبة الطلبات الواردة في الوقت الفعلي من السحابة مع أزرار التأكيد والرفض
+        // مراقبة الطلبات الواردة في الوقت الفعلي من السحابة
         onSnapshot(collection(db, "orders"), (snapshot) => {
             const container = document.getElementById('ordersContainer');
             if (snapshot.empty) {
@@ -126,7 +160,6 @@
             container.innerHTML = html;
         });
 
-        // تحديث حالة الطلب في السحابة
         window.updateOrderStatus = async function(id, newStatus) {
             try {
                 await updateDoc(doc(db, "orders", id), { status: newStatus });
@@ -135,7 +168,6 @@
             }
         };
 
-        // حفظ منتج جديد في السحابة
         window.saveProductCloud = async function(e) {
             e.preventDefault();
             const name = document.getElementById('prodName').value;
@@ -186,6 +218,15 @@
                 }
             }
         };
+
+        // تحميل الإعدادات عند فتح اللوحة
+        window.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
+                document.getElementById('loginModal').classList.add('hidden');
+                document.getElementById('adminContent').classList.remove('hidden');
+                loadCloudTelegramSettings();
+            }
+        });
     </script>
 
     <style>
@@ -357,7 +398,7 @@
                 <div class="flex items-center gap-3 border-b border-gray-800 pb-4">
                     <i class="fa-brands fa-telegram text-3xl text-sky-400"></i>
                     <div>
-                        <h3 class="font-bold text-white">ربط البوت الفوري عبر Telegram</h3>
+                        <h3 class="font-bold text-white">ربط البوت الفوري عبر Telegram (سحابي لجميع الأدمن)</h3>
                         <p class="text-xs text-gray-400">تلقي تفاصيل كل طلب جديد فورياً على تلغرام</p>
                     </div>
                 </div>
@@ -369,8 +410,8 @@
                     <label class="block text-sm text-gray-300 mb-1">Chat ID</label>
                     <input type="text" id="telegramChatId" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
                 </div>
-                <button onclick="saveTelegramSettings()" class="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl transition">
-                    حفظ إعدادات تلغرام
+                <button onclick="saveCloudTelegramSettings()" class="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl transition shadow-lg">
+                    حفظ وتحديث إعدادات تيليجرام سحابياً
                 </button>
             </div>
 
@@ -409,17 +450,11 @@
                 sessionStorage.setItem('isAdminLoggedIn', 'true');
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
-                loadSettings();
+                if(typeof window.loadCloudTelegramSettings === 'function') {
+                    window.loadCloudTelegramSettings();
+                }
             } else {
                 alert('كلمة المرور غير صحيحة!');
-            }
-        }
-
-        function checkAuth() {
-            if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
-                document.getElementById('loginModal').classList.add('hidden');
-                document.getElementById('adminContent').classList.remove('hidden');
-                loadSettings();
             }
         }
 
@@ -453,19 +488,6 @@
             }
         }
 
-        function loadSettings() {
-            document.getElementById('telegramToken').value = localStorage.getItem('tgBotToken') || '';
-            document.getElementById('telegramChatId').value = localStorage.getItem('tgChatId') || '';
-        }
-
-        function saveTelegramSettings() {
-            const token = document.getElementById('telegramToken').value.trim();
-            const chatId = document.getElementById('telegramChatId').value.trim();
-            localStorage.setItem('tgBotToken', token);
-            localStorage.setItem('tgChatId', chatId);
-            alert('تم حفظ إعدادات تلغرام بنجاح!');
-        }
-
         function changePassword() {
             const currPass = document.getElementById('currPass').value;
             const newPass = document.getElementById('newPass').value;
@@ -486,8 +508,6 @@
             document.getElementById('currPass').value = '';
             document.getElementById('newPass').value = '';
         }
-
-        window.onload = checkAuth;
     </script>
 </body>
 </html>
