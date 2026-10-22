@@ -11,7 +11,7 @@
     <!-- Firebase SDK v9 Module -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDhtAe06W15Cv0EpCGa3xa3-X9yVVslG2Y",
@@ -62,7 +62,7 @@
         onSnapshot(collection(db, "orders"), (snapshot) => {
             const container = document.getElementById('ordersContainer');
             if (snapshot.empty) {
-                container.innerHTML = `<p class="text-gray-400 text-center py-8">لا توجد طلبات سحابية جديدة حتى الآن</p>`;
+                container.innerHTML = `<p class="text-gray-400 text-center py-8">لا توجد طلبات جديدة حتى الآن</p>`;
                 return;
             }
 
@@ -161,14 +161,14 @@
                 document.getElementById('productForm').reset();
                 window.uploadedBase64Img = "";
                 toggleProductForm();
-                alert('تم حفظ ونشر المنتج في السحابة بنجاح!');
+                alert('تم حفظ ونشر المنتج بنجاح!');
             } catch (err) {
-                alert('خطأ أثناء الحفظ في السحابة: ' + err.message);
+                alert('خطأ أثناء الحفظ: ' + err.message);
             }
         };
 
         window.deleteProductDoc = async function(id) {
-            if(confirm('هل أنت متأكد من حذف المنتج من السحابة؟')) {
+            if(confirm('هل أنت متأكد من حذف المنتج؟')) {
                 try {
                     await deleteDoc(doc(db, "products", id));
                 } catch (err) {
@@ -178,12 +178,50 @@
         };
 
         window.deleteOrderDoc = async function(id) {
-            if(confirm('هل تريد حذف هذا الطلب من السحابة؟')) {
+            if(confirm('هل تريد حذف هذا الطلب؟')) {
                 try {
                     await deleteDoc(doc(db, "orders", id));
                 } catch (err) {
                     alert('خطأ أثناء حذف الطلب: ' + err.message);
                 }
+            }
+        };
+
+        // جلب إعدادات تليجرام سحابياً عند فتح الصفحة
+        window.loadSettings = async function() {
+            try {
+                const docRef = doc(db, "settings", "telegram");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('telegramToken').value = data.botToken || '';
+                    document.getElementById('telegramChatId').value = data.chatId || '';
+                }
+            } catch (err) {
+                console.error("خطأ في جلب إعدادات تيليجرام من السحابة:", err);
+            }
+        };
+
+        // حفظ إعدادات تليجرام سحابياً في Firebase
+        window.saveTelegramSettings = async function() {
+            const botToken = document.getElementById('telegramToken').value.trim();
+            const chatId = document.getElementById('telegramChatId').value.trim();
+
+            if (!botToken || !chatId) {
+                alert('يرجى ملء حقل Bot Token و Chat ID أولاً');
+                return;
+            }
+
+            try {
+                await setDoc(doc(db, "settings", "telegram"), {
+                    botToken: botToken,
+                    chatId: chatId,
+                    updatedAt: new Date()
+                }, { merge: true });
+
+                alert('تم حفظ وتزامن إعدادات تيليجرام سحابياً بنجاح!');
+            } catch (err) {
+                alert('خطأ أثناء الحفظ في السحابة: ' + err.message);
             }
         };
     </script>
@@ -267,7 +305,7 @@
 
             <!-- نموذج إضافة المنتجات -->
             <div id="productFormBox" class="hidden glass-panel p-6 rounded-2xl border border-gray-800 space-y-5">
-                <h3 class="text-lg font-bold text-cyan-400 border-b border-gray-800 pb-3">إضافة منتج جديد للسحابة</h3>
+                <h3 class="text-lg font-bold text-cyan-400 border-b border-gray-800 pb-3">إضافة منتج جديد</h3>
                 
                 <form id="productForm" onsubmit="saveProductCloud(event)" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -288,7 +326,7 @@
                                 <option value="أذرع التحكم (Controllers)">أذرع التحكم (Controllers)</option>
                                 <option value="أجهزة الكونسول (Consoles)">أجهزة الكونسول (Consoles)</option>
                                 <option value="سماعات وملحقات (Headsets)">سماعات وملحقات (Headsets)</option>
-                                <option value="ألعاب واشتراكات (Games)">ألعاب واشتراكات (Games)</option>
+                                <option value="ألعاب وااشتراكات (Games)">ألعاب واشتراكات (Games)</option>
                             </select>
                         </div>
                         <div>
@@ -323,7 +361,7 @@
 
                     <div class="flex gap-3 pt-2">
                         <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-6 py-2.5 rounded-xl transition text-sm">
-                            حفظ ونشر بالسحابة
+                            حفظ ونشر المنتج
                         </button>
                         <button type="button" onclick="toggleProductForm()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-6 py-2.5 rounded-xl transition text-sm">
                             إلغاء
@@ -358,16 +396,16 @@
                     <i class="fa-brands fa-telegram text-3xl text-sky-400"></i>
                     <div>
                         <h3 class="font-bold text-white">ربط البوت الفوري عبر Telegram</h3>
-                        <p class="text-xs text-gray-400">تلقي تفاصيل كل طلب جديد فورياً على تلغرام</p>
+                        <p class="text-xs text-gray-400">تلقي تفاصيل كل طلب جديد فورياً على تلغرام عبر المزامنة السحابية</p>
                     </div>
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">Bot Token</label>
-                   <input type="text" id="telegramToken" dir="ltr" placeholder="Bot Token" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
+                    <input type="text" id="telegramToken" dir="ltr" placeholder="Bot Token" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">Chat ID</label>
-                    <input type="text" id="telegramChatId" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
+                    <input type="text" id="telegramChatId" dir="ltr" placeholder="Chat ID" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
                 </div>
                 <button onclick="saveTelegramSettings()" class="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl transition">
                     حفظ إعدادات تلغرام
@@ -409,7 +447,7 @@
                 sessionStorage.setItem('isAdminLoggedIn', 'true');
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
-                loadSettings();
+                if (typeof window.loadSettings === 'function') window.loadSettings();
             } else {
                 alert('كلمة المرور غير صحيحة!');
             }
@@ -419,7 +457,7 @@
             if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
-                loadSettings();
+                if (typeof window.loadSettings === 'function') window.loadSettings();
             }
         }
 
@@ -451,19 +489,6 @@
                 };
                 reader.readAsDataURL(file);
             }
-        }
-
-        function loadSettings() {
-            document.getElementById('telegramToken').value = localStorage.getItem('tgBotToken') || '';
-            document.getElementById('telegramChatId').value = localStorage.getItem('tgChatId') || '';
-        }
-
-        function saveTelegramSettings() {
-            const token = document.getElementById('telegramToken').value.trim();
-            const chatId = document.getElementById('telegramChatId').value.trim();
-            localStorage.setItem('tgBotToken', token);
-            localStorage.setItem('tgChatId', chatId);
-            alert('تم حفظ إعدادات تلغرام بنجاح!');
         }
 
         function changePassword() {
