@@ -25,7 +25,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // جلب إعدادات تيليجرام سحابياً عند تحميل اللوحة
         async function loadCloudTelegramSettings() {
             try {
                 const docRef = doc(db, "settings", "telegram");
@@ -41,7 +40,6 @@
         }
         window.loadCloudTelegramSettings = loadCloudTelegramSettings;
 
-        // حفظ أو تبديل إعدادات تيليجرام سحابياً لتشمل كل الأجهزة
         window.saveCloudTelegramSettings = async function() {
             const botToken = document.getElementById('telegramToken').value.trim();
             const chatId = document.getElementById('telegramChatId').value.trim();
@@ -59,7 +57,6 @@
             }
         };
 
-        // مراقبة المنتجات في الوقت الفعلي من السحابة
         onSnapshot(collection(db, "products"), (snapshot) => {
             document.getElementById('productCountHeader').innerText = `قائمة المنتجات (${snapshot.size})`;
             const tbody = document.getElementById('productsTableBody');
@@ -92,7 +89,6 @@
             tbody.innerHTML = html;
         });
 
-        // مراقبة الطلبات الواردة في الوقت الفعلي من السحابة
         onSnapshot(collection(db, "orders"), (snapshot) => {
             const container = document.getElementById('ordersContainer');
             if (snapshot.empty) {
@@ -219,7 +215,6 @@
             }
         };
 
-        // تحميل الإعدادات عند فتح اللوحة
         window.addEventListener('DOMContentLoaded', () => {
             if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
                 document.getElementById('loginModal').classList.add('hidden');
@@ -238,7 +233,6 @@
 </head>
 <body class="min-h-screen flex flex-col justify-between">
 
-    <!-- نافذة تسجيل الدخول -->
     <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
         <div class="glass-panel p-8 rounded-2xl max-w-md w-full border border-cyan-500/20 shadow-2xl">
             <div class="text-center mb-6">
@@ -260,9 +254,7 @@
         </div>
     </div>
 
-    <!-- المحتوى الرئيسي للوحة -->
     <div id="adminContent" class="hidden container mx-auto px-4 py-8 max-w-6xl">
-        <!-- الهيدر -->
         <header class="glass-panel rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
@@ -278,7 +270,6 @@
             </button>
         </header>
 
-        <!-- التبويبات -->
         <div class="flex border-b border-gray-800 mb-8 overflow-x-auto justify-end">
             <button onclick="switchTab('orders')" id="tab-orders" class="px-6 py-3 font-medium border-b-2 border-cyan-500 text-cyan-400 flex items-center gap-2 whitespace-nowrap">
                 <i class="fa-solid fa-box-archive"></i> الطلبات الواردة
@@ -291,13 +282,11 @@
             </button>
         </div>
 
-        <!-- قسم الطلبات -->
         <section id="sec-orders" class="space-y-4">
             <h2 class="text-xl font-bold text-white mb-4">قائمة الطلبات السحابية الواردة</h2>
             <div id="ordersContainer" class="space-y-4"></div>
         </section>
 
-        <!-- قسم المنتجات -->
         <section id="sec-products" class="hidden space-y-6">
             <div class="flex justify-between items-center">
                 <button onclick="toggleProductForm()" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-5 py-2.5 rounded-full transition flex items-center gap-2 shadow-lg shadow-cyan-500/20 text-sm">
@@ -306,7 +295,6 @@
                 <h2 class="text-xl font-bold text-white" id="productCountHeader">قائمة المنتجات (0)</h2>
             </div>
 
-            <!-- نموذج إضافة المنتجات -->
             <div id="productFormBox" class="hidden glass-panel p-6 rounded-2xl border border-gray-800 space-y-5">
                 <h3 class="text-lg font-bold text-cyan-400 border-b border-gray-800 pb-3">إضافة منتج جديد للسحابة</h3>
                 
@@ -373,7 +361,6 @@
                 </form>
             </div>
 
-            <!-- جدول عرض المنتجات -->
             <div class="glass-panel rounded-2xl overflow-hidden border border-gray-800">
                 <div class="overflow-x-auto">
                     <table class="w-full text-right text-sm">
@@ -392,7 +379,6 @@
             </div>
         </section>
 
-        <!-- قسم الإعدادات -->
         <section id="sec-settings" class="hidden space-y-6">
             <div class="glass-panel p-6 rounded-2xl max-w-2xl mx-auto space-y-4">
                 <div class="flex items-center gap-3 border-b border-gray-800 pb-4">
@@ -404,11 +390,12 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">Bot Token</label>
-                    <input type="text" id="telegramToken" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
+                    <!-- تمت إضافة dir="ltr" لمنع انعكاس التوكن -->
+                    <input type="text" id="telegramToken" dir="ltr" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">Chat ID</label>
-                    <input type="text" id="telegramChatId" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
+                    <input type="text" id="telegramChatId" dir="ltr" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
                 </div>
                 <button onclick="saveCloudTelegramSettings()" class="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl transition shadow-lg">
                     حفظ وتحديث إعدادات تيليجرام سحابياً
