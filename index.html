@@ -16,7 +16,7 @@
     <!-- Firebase SDK v9 Module -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDhtAe06W15Cv0EpCGa3xa3-X9yVVslG2Y",
@@ -46,7 +46,7 @@
             }
         });
 
-        // دالة حفظ الطلب في السحابة وتنبيهات تيليجرام
+        // دالة حفظ الطلب وجلب إعدادات تيليجرام سحابياً
         window.sendOrderToCloud = async function(orderData) {
             try {
                 await addDoc(collection(db, "orders"), {
@@ -54,17 +54,23 @@
                     createdAt: serverTimestamp()
                 });
 
-                const botToken = localStorage.getItem('tgBotToken');
-                const chatId = localStorage.getItem('tgChatId');
-                if (botToken && chatId) {
-                    let itemsText = orderData.items.map(i => `- ${i.name} (${i.quantity})`).join('\n');
-                    const message = `🛍️ *طلب جديد عبر السحابة (NASRO STORE)*\n\n👤 *الزبون:* ${orderData.customer.name}\n📞 *الهاتف:* ${orderData.customer.phone}\n📍 *الولاية:* ${orderData.customer.wilaya}\n🏠 *العنوان:* ${orderData.customer.address || 'غير محدد'}\n\n📦 *المشتريات:*\n${itemsText}\n\n💰 *الإجمالي:* ${orderData.totalPrice} د.ج`;
-                    
-                    fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' })
-                    }).catch(() => {});
+                // جلب إعدادات البوت والآيدي مباشرة من السحابة
+                const settingsDoc = await getDoc(doc(db, "settings", "telegram"));
+                if (settingsDoc.exists()) {
+                    const stData = settingsDoc.data();
+                    const botToken = stData.botToken;
+                    const chatId = stData.chatId;
+
+                    if (botToken && chatId) {
+                        let itemsText = orderData.items.map(i => `- ${i.name} (${i.quantity})`).join('\n');
+                        const message = `🛍️ *طلب جديد عبر السحابة (NASRO STORE)*\n\n👤 *الزبون:* ${orderData.customer.name}\n📞 *الهاتف:* ${orderData.customer.phone}\n📍 *الولاية:* ${orderData.customer.wilaya}\n🏠 *العنوان:* ${orderData.customer.address || 'غير محدد'}\n\n📦 *المشتريات:*\n${itemsText}\n\n💰 *الإجمالي:* ${orderData.totalPrice} د.ج`;
+                        
+                        fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'Markdown' })
+                        }).catch(() => {});
+                    }
                 }
 
                 return true;
@@ -610,7 +616,7 @@
             bind('close-checkout-modal', 'click', () => safeGet('checkout-modal')?.classList.add('hidden'));
             bind('close-details-modal', 'click', closeModal);
 
-            // Customer Order Submit (Cloud Firebase Integration + Success Modal)
+            // Customer Order Submit
             bind('customer-order-form', 'submit', async (e) => {
                 e.preventDefault();
                 if (cart.length === 0) return;
@@ -642,14 +648,12 @@
                     safeGet('checkout-modal')?.classList.add('hidden');
                     safeGet('customer-order-form')?.reset();
 
-                    // إظهار نافذة رسالة النجاح والانتظار للزبون
                     safeGet('success-order-modal')?.classList.remove('hidden');
                 } else {
                     showToast('حدث خطأ أثناء إرسال الطلب للسحابة.', 'error');
                 }
             });
 
-            // Categories
             const catFilters = safeGet('category-filters');
             if (catFilters) {
                 catFilters.addEventListener('click', (e) => {
@@ -664,7 +668,6 @@
                 });
             }
 
-            // Search
             const handleSearch = (e) => { searchQuery = e.target.value; window.renderProducts(); };
             bind('search-input', 'input', handleSearch);
             bind('mobile-search-input', 'input', handleSearch);
