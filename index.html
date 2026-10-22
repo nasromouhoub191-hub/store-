@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NASRO STORE - المتجر الإلكتروني الفاخر للألعاب (سحابي)</title>
+    <title>NASRO STORE - المتجر الإلكتروني الفاخر للألعاب</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -40,7 +40,6 @@
                 });
             });
 
-            // تحديث المصفوفة العامة وعرض المنتجات
             window.appProducts = cloudProducts;
             if (typeof window.renderProducts === 'function') {
                 window.renderProducts();
@@ -55,7 +54,6 @@
                     createdAt: serverTimestamp()
                 });
 
-                // إرسال إشعار تلغرام الفوري إن وُجدت الإعدادات
                 const botToken = localStorage.getItem('tgBotToken');
                 const chatId = localStorage.getItem('tgChatId');
                 if (botToken && chatId) {
@@ -157,9 +155,9 @@
                 <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
             </div>
 
-            <!-- Action Buttons & Cart Trigger -->
+            <!-- Action Buttons & Cart Trigger (رقم واتساب موجه للمالك 0556751958) -->
             <div class="flex items-center gap-4">
-                <a href="https://wa.me/213557891556" target="_blank" class="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-500/20 transition">
+                <a href="https://wa.me/213556751958" target="_blank" class="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-500/20 transition">
                     <i class="fa-brands fa-whatsapp text-sm"></i>
                     <span>طلب سريع</span>
                 </a>
@@ -216,9 +214,9 @@
         <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p>© 2026 NASRO STORE. جميع الحقوق محفوظة.</p>
             
-            <a href="https://wa.me/213557891556" target="_blank" class="text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 bg-cyber-card px-3 py-1.5 rounded-lg border border-cyber-border hover:border-emerald-500/40">
+            <a href="https://wa.me/213556751958" target="_blank" class="text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 bg-cyber-card px-3 py-1.5 rounded-lg border border-cyber-border hover:border-emerald-500/40">
                 <i class="fa-brands fa-whatsapp text-emerald-400 text-sm"></i>
-                <span>تطوير بواسطة <strong class="text-white">Nasro MHB</strong> (سحابي)</span>
+                <span>مهدي بورفيس (المالك)</span>
             </a>
         </div>
     </footer>
@@ -264,7 +262,7 @@
                         
                         <button id="checkout-whatsapp-btn" class="w-full py-3 rounded-xl font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition flex items-center justify-center gap-2 text-xs">
                             <i class="fa-brands fa-whatsapp text-base"></i>
-                            <span>طلب سريع عبر واتساب</span>
+                            <span>طلب سريع عبر واتساب (للمالك)</span>
                         </button>
                     </div>
                 </div>
@@ -557,6 +555,7 @@
             safeGet('checkout-modal')?.classList.remove('hidden');
         }
 
+        // توجيه طلبات الواتساب مباشرة إلى رقم المالك 213556751958
         function checkoutViaWhatsApp() {
             if (cart.length === 0) {
                 showToast('السلة فارغة!', 'error');
@@ -571,7 +570,7 @@
             const total = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
             text += `\nإجمالي المشتريات: ${formatPrice(total)} د.ج\nيرجى التواصل لتأكيد التوصيل.`;
 
-            const url = `https://wa.me/213557891556?text=${encodeURIComponent(text)}`;
+            const url = `https://wa.me/213556751958?text=${encodeURIComponent(text)}`;
             window.open(url, '_blank');
         }
 
