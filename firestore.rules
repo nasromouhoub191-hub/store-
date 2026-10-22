@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ضع هنا UID حساب المدير (Firebase Console > Authentication > Users)
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == 'PUT_ADMIN_UID_HERE';
+    }
+    function str(v, max) {
+      return v is string && v.size() > 0 && v.size() <= max;
+    }
+
+    // ---------- المنتجات: قراءة للجميع، كتابة للمدير فقط مع تحقق من الأنواع ----------
+    match /products/{id} {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && str(request.resource.data.name, 120)
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && request.resource.data.price < 100000000
+        && request.resource.data.image is string
+        && request.resource.data.image.size() < 500000
+        && request.resource.data.desc is string
+        && request.resource.data.desc.size() <= 2000;
+      allow delete: if isAdmin();
+    }
+
+    // ---------- الطلبات: الزبون ينشئ فقط (حقول محددة)، المدير يقرأ ويدير ----------
+    match /orders/{id} {
+      allow read, delete: if isAdmin();
+
+      // المدير يستطيع تغيير الحالة فقط
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['جديد', 'مؤكد', 'مرفوض'];
+
+      allow create: if request.resource.data.keys().hasOnly(
+            ['id', 'date', 'customer', 'items', 'totalPrice', 'status', 'createdAt'])
+        && request.resource.data.status == 'جديد'
+        && request.resource.data.createdAt == request.time
+        && str(request.resource.data.id, 20)
+        && str(request.resource.data.date, 60)
+        && request.resource.data.customer is map
+        && request.resource.data.customer.keys().hasOnly(['name', 'phone', 'wilaya', 'address', 'notes'])
+        && str(request.resource.data.customer.name, 80)
+        && request.resource.data.customer.phone is string
+        && request.resource.data.customer.phone.matches('^[+]?[0-9]{9,15}$')
+        && str(request.resource.data.customer.wilaya, 50)
+        && request.resource.data.customer.address is string
+        && request.resource.data.customer.address.size() <= 200
+        && request.resource.data.customer.notes is string
+        && request.resource.data.customer.notes.size() <= 500
+        && request.resource.data.items is list
+        && request.resource.data.items.size() >= 1
+        && request.resource.data.items.size() <= 20
+        && request.resource.data.totalPrice is number
+        && request.resource.data.totalPrice > 0
+        && request.resource.data.totalPrice < 100000000;
+    }
+
+    // ---------- الإعدادات (توكن تيليغرام): المدير فقط ----------
+    match /settings/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    // أي مسار آخر مرفوض
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
