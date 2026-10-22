@@ -155,7 +155,7 @@
                 <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
             </div>
 
-            <!-- Action Buttons & Cart Trigger (رقم واتساب موجه للمالك 0556751958) -->
+            <!-- Action Buttons & Cart Trigger -->
             <div class="flex items-center gap-4">
                 <a href="https://wa.me/213556751958" target="_blank" class="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-500/20 transition">
                     <i class="fa-brands fa-whatsapp text-sm"></i>
@@ -216,7 +216,7 @@
             
             <a href="https://wa.me/213556751958" target="_blank" class="text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 bg-cyber-card px-3 py-1.5 rounded-lg border border-cyber-border hover:border-emerald-500/40">
                 <i class="fa-brands fa-whatsapp text-emerald-400 text-sm"></i>
-                <span>مهدي بورفيس (المالك)</span>
+                <span>مهدي بورفيس (المالك)[cite: 4]</span>
             </a>
         </div>
     </footer>
@@ -262,7 +262,7 @@
                         
                         <button id="checkout-whatsapp-btn" class="w-full py-3 rounded-xl font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition flex items-center justify-center gap-2 text-xs">
                             <i class="fa-brands fa-whatsapp text-base"></i>
-                            <span>طلب سريع عبر واتساب (للمالك)</span>
+                            <span>طلب سريع عبر واتساب (للمالك)[cite: 4]</span>
                         </button>
                     </div>
                 </div>
@@ -333,6 +333,25 @@
                     <span>تأكيد وإرسال الطلب للسحابة</span>
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- ORDER SUCCESS / PENDING NOTICE MODAL -->
+    <div id="success-order-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md hidden">
+        <div class="bg-cyber-card border border-cyan-500/40 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
+            <div class="w-20 h-20 bg-cyan-500/10 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 text-3xl mx-auto shadow-inner animate-bounce">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+            </div>
+            
+            <div class="space-y-2">
+                <h2 class="text-2xl font-black text-white">تم إرسال طلبك بنجاح!</h2>
+                <p class="text-sm text-cyan-300 font-bold">انتظار معالجة الطلب، سيتصلون بك لتأكيد الطلب</p>
+                <p class="text-xs text-slate-400 leading-relaxed pt-2">شكراً لتسوقك معنا في NASRO STORE. لقد تم تسجيل طلبك في السحابة وسيتم التواصل معك قريباً عبر الهاتف لتأكيد عملية التوصيل.</p>
+            </div>
+
+            <button onclick="closeSuccessModal()" class="w-full py-3 rounded-xl font-extrabold text-black bg-cyber-primary hover:bg-cyan-300 transition shadow-lg shadow-cyber-primary/20">
+                حسناً، فهمت
+            </button>
         </div>
     </div>
 
@@ -555,7 +574,10 @@
             safeGet('checkout-modal')?.classList.remove('hidden');
         }
 
-        // توجيه طلبات الواتساب مباشرة إلى رقم المالك 213556751958
+        function closeSuccessModal() {
+            safeGet('success-order-modal')?.classList.add('hidden');
+        }
+
         function checkoutViaWhatsApp() {
             if (cart.length === 0) {
                 showToast('السلة فارغة!', 'error');
@@ -588,7 +610,7 @@
             bind('close-checkout-modal', 'click', () => safeGet('checkout-modal')?.classList.add('hidden'));
             bind('close-details-modal', 'click', closeModal);
 
-            // Customer Order Submit (Cloud Firebase Integration)
+            // Customer Order Submit (Cloud Firebase Integration + Success Modal)
             bind('customer-order-form', 'submit', async (e) => {
                 e.preventDefault();
                 if (cart.length === 0) return;
@@ -600,8 +622,9 @@
                 const notes = safeGet('cust-notes').value.trim();
                 const totalPrice = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
 
+                const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
                 const newOrder = {
-                    id: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+                    id: orderId,
                     date: new Date().toLocaleString('ar-DZ'),
                     customer: { name, phone, wilaya, address, notes },
                     items: [...cart],
@@ -619,7 +642,8 @@
                     safeGet('checkout-modal')?.classList.add('hidden');
                     safeGet('customer-order-form')?.reset();
 
-                    showToast('تم إرسال طلبك بنجاح وحفظه في السحابة الفورية!', 'success');
+                    // إظهار نافذة رسالة النجاح والانتظار للزبون
+                    safeGet('success-order-modal')?.classList.remove('hidden');
                 } else {
                     showToast('حدث خطأ أثناء إرسال الطلب للسحابة.', 'error');
                 }
