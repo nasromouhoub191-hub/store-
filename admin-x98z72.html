@@ -42,7 +42,7 @@
         <header class="glass-panel rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
                 <div class="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
-                    <i class="fa-solid fa-[#0b0f19] fa-sliders text-2xl text-cyan-400"></i>
+                    <i class="fa-solid fa-sliders text-2xl text-cyan-400"></i>
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold text-white">لوحة إدارة المتجر الشاملة</h1>
@@ -138,22 +138,12 @@
     </div>
 
     <script>
-        // دالة تشفير SHA-256 للحفاظ على الأمان
-        async function sha256(str) {
-            const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-            return Array.prototype.map.call(new Uint8Array(buf), x => (('0' + x.toString(16)).slice(-2))).join('');
-        }
-
-        // إعداد كلمة السر المشفرة افتراضياً (بدون إظهار التشفير كـ Plain Text)
-        const DEFAULT_HASH = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918"; // admin123
-
-        async function handleLogin(e) {
+        function handleLogin(e) {
             e.preventDefault();
             const pass = document.getElementById('loginPassword').value;
-            const hashed = await sha256(pass);
-            const savedHash = localStorage.getItem('adminPasswordHash') || DEFAULT_HASH;
+            const currentSavedPass = localStorage.getItem('adminPasswordCustom') || 'admin123';
 
-            if (hashed === savedHash) {
+            if (pass === currentSavedPass) {
                 sessionStorage.setItem('isAdminLoggedIn', 'true');
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
@@ -204,25 +194,22 @@
             alert('تم حفظ إعدادات تلغرام بنجاح!');
         }
 
-        async function changePassword() {
+        function changePassword() {
             const currPass = document.getElementById('currPass').value;
             const newPass = document.getElementById('newPass').value;
-            
+            const currentSavedPass = localStorage.getItem('adminPasswordCustom') || 'admin123';
+
             if(!currPass || !newPass) {
                 alert('يرجى ملء جميع الحقول');
                 return;
             }
 
-            const currHash = await sha256(currPass);
-            const savedHash = localStorage.getItem('adminPasswordHash') || DEFAULT_HASH;
-
-            if(currHash !== savedHash) {
+            if(currPass !== currentSavedPass) {
                 alert('كلمة المرور الحالية غير صحيحة!');
                 return;
             }
 
-            const newHash = await sha256(newPass);
-            localStorage.setItem('adminPasswordHash', newHash);
+            localStorage.setItem('adminPasswordCustom', newPass);
             alert('تم تغيير كلمة المرور بنجاح!');
             document.getElementById('currPass').value = '';
             document.getElementById('newPass').value = '';
