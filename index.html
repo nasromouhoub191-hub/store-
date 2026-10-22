@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NASRO STORE - المتجر الإلكتروني الفاخر للألعاب</title>
+    <title>NASRO STORE - أفضل متجر ألعاب وإكسسوارات في الجزائر</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- FontAwesome Icons -->
@@ -16,7 +16,7 @@
     <!-- Firebase SDK v9 Module -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getFirestore, collection, onSnapshot, addDoc, doc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, getDoc, getDocs, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyDhtAe06W15Cv0EpCGa3xa3-X9yVVslG2Y",
@@ -30,7 +30,6 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // ربط المنتجات مباشرة من السحابة في الوقت الفعلي
         onSnapshot(collection(db, "products"), (snapshot) => {
             let cloudProducts = [];
             snapshot.forEach((docSnap) => {
@@ -46,7 +45,6 @@
             }
         });
 
-        // دالة حفظ الطلب وجلب إعدادات تيليجرام سحابياً
         window.sendOrderToCloud = async function(orderData) {
             try {
                 await addDoc(collection(db, "orders"), {
@@ -54,7 +52,6 @@
                     createdAt: serverTimestamp()
                 });
 
-                // جلب إعدادات البوت والآيدي مباشرة من السحابة
                 const settingsDoc = await getDoc(doc(db, "settings", "telegram"));
                 if (settingsDoc.exists()) {
                     const stData = settingsDoc.data();
@@ -63,7 +60,7 @@
 
                     if (botToken && chatId) {
                         let itemsText = orderData.items.map(i => `- ${i.name} (${i.quantity})`).join('\n');
-                        const message = `🛍️ *طلب جديد عبر السحابة (NASRO STORE)*\n\n👤 *الزبون:* ${orderData.customer.name}\n📞 *الهاتف:* ${orderData.customer.phone}\n📍 *الولاية:* ${orderData.customer.wilaya}\n🏠 *العنوان:* ${orderData.customer.address || 'غير محدد'}\n\n📦 *المشتريات:*\n${itemsText}\n\n💰 *الإجمالي:* ${orderData.totalPrice} د.ج`;
+                        const message = `🛍️ *طلب جديد عبر السحابة (NASRO STORE)*\n\n🆔 *رقم الطلب:* ${orderData.id}\n👤 *الزبون:* ${orderData.customer.name}\n📞 *الهاتف:* ${orderData.customer.phone}\n📍 *الولاية:* ${orderData.customer.wilaya}\n🏠 *العنوان:* ${orderData.customer.address || 'غير محدد'}\n\n📦 *المشتريات:*\n${itemsText}\n\n💰 *الإجمالي:* ${orderData.totalPrice} د.ج`;
                         
                         fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
                             method: 'POST',
@@ -77,6 +74,71 @@
             } catch (error) {
                 console.error("خطأ في حفظ الطلب بالسحابة: ", error);
                 return false;
+            }
+        };
+
+        // دالة تتبع الطلب للزبون
+        window.trackCustomerOrder = async function() {
+            const orderIdInput = document.getElementById('track-order-input').value.trim().toUpperCase();
+            const resultBox = document.getElementById('track-result-box');
+
+            if (!orderIdInput) {
+                showToast('يرجى إدخال رقم الطلب أولاً', 'error');
+                return;
+            }
+
+            resultBox.classList.remove('hidden');
+            resultBox.className = "mt-4 p-4 rounded-xl border text-right bg-cyber-dark border-cyber-border text-slate-300";
+            resultBox.innerHTML = `<p class="text-center text-xs">جاري البحث عن الطلب في السحابة...</p>`;
+
+            try {
+                const q = query(collection(db, "orders"), where("id", "==", orderIdInput));
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    resultBox.className = "mt-4 p-4 rounded-xl border text-right bg-rose-500/10 border-rose-500/30 text-rose-400 text-xs";
+                    resultBox.innerHTML = `<p class="font-bold">❌ عذراً، لم يتم العثور على طلب بهذا الرقم. تأكد من صحة الرقم.</p>`;
+                    return;
+                }
+
+                querySnapshot.forEach((docSnap) => {
+                    const order = docSnap.data();
+                    const status = order.status || 'جديد';
+                    let statusText = '⏳ قيد الانتظار والمعالجة';
+                    let statusClass = 'bg-amber-500/10 border-amber-500/30 text-amber-400';
+
+                    if (status === 'مؤكد') {
+                        statusText = '✅ تم قبول وتأكيد طلبك بنجاح';
+                        statusClass = 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400';
+                    } else if (status === 'مرفوض') {
+                        statusText = '❌ عذراً، تم رفض أو إلغاء الطلب';
+                        statusClass = 'bg-rose-500/10 border-rose-500/30 text-rose-400';
+                    }
+
+                    let itemsHtml = order.items ? order.items.map(i => `<li class="text-[11px] text-slate-300">• ${i.name} (العدد: ${i.quantity})</li>`).join('') : '';
+
+                    resultBox.className = `mt-4 p-4 rounded-xl border text-right ${statusClass} space-y-2`;
+                    resultBox.innerHTML = `
+                        <div class="flex justify-between items-center border-b border-white/10 pb-2">
+                            <span class="font-bold text-white text-xs font-mono">رقم الطلب: ${order.id}</span>
+                            <span class="font-black text-xs px-2.5 py-1 rounded-full ${statusClass}">${statusText}</span>
+                        </div>
+                        <div class="text-xs space-y-1 pt-1">
+                            <p class="text-slate-300">👤 اسم الزبون: <strong class="text-white">${order.customer ? order.customer.name : 'غير متوفر'}</strong></p>
+                            <p class="text-slate-300">📍 الولاية: <strong class="text-white">${order.customer ? order.customer.wilaya : 'غير متوفر'}</strong></p>
+                            <div class="pt-1">
+                                <span class="text-slate-400 block mb-1">المنتجات المطلوبة:</span>
+                                <ul class="space-y-0.5 bg-black/30 p-2 rounded-lg">${itemsHtml}</ul>
+                            </div>
+                            <p class="text-cyber-primary font-black pt-1">💰 الإجمالي الكلي: ${order.totalPrice} د.ج</p>
+                        </div>
+                    `;
+                });
+
+            } catch (err) {
+                console.error("خطأ في البحث عن الطلب:", err);
+                resultBox.className = "mt-4 p-4 rounded-xl border text-right bg-rose-500/10 border-rose-500/30 text-rose-400 text-xs";
+                resultBox.innerHTML = `<p>حدث خطأ أثناء البحث. يرجى المحاولة لاحقاً.</p>`;
             }
         };
     </script>
@@ -102,46 +164,17 @@
         }
     </script>
     <style>
-        body {
-            font-family: 'Tajawal', sans-serif;
-            background-color: #0a0d14;
-            color: #e2e8f0;
-            overflow-x: hidden;
-        }
-        .glass-nav {
-            background: rgba(10, 13, 20, 0.85);
-            backdrop-filter: blur(16px);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #0a0d14;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #1e2638;
-            border-radius: 4px;
-        }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #00f0ff;
-        }
+        body { font-family: 'Tajawal', sans-serif; background-color: #0a0d14; color: #e2e8f0; overflow-x: hidden; }
+        .glass-nav { background: rgba(10, 13, 20, 0.85); backdrop-filter: blur(16px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .glass-panel { background: rgba(18, 23, 34, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
     </style>
 </head>
 <body class="min-h-screen flex flex-col selection:bg-cyber-primary selection:text-black">
 
-    <!-- Background Cyber Glows -->
-    <div class="fixed top-0 left-1/4 w-96 h-96 bg-cyber-secondary/20 rounded-full blur-[120px] pointer-events-none"></div>
-    <div class="fixed bottom-10 right-10 w-96 h-96 bg-cyber-primary/15 rounded-full blur-[130px] pointer-events-none"></div>
-
-    <!-- Toast Notification Container -->
     <div id="toast-container" class="fixed top-5 left-5 z-[100] flex flex-col gap-3 pointer-events-none"></div>
 
     <header class="sticky top-0 z-40 glass-nav transition-all duration-300">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            
-            <!-- Logo -->
             <div class="flex items-center gap-3 cursor-pointer select-none group">
                 <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-cyber-secondary to-cyber-primary flex items-center justify-center text-white text-xl shadow-lg transition-transform group-hover:scale-105">
                     <i class="fa-solid fa-gamepad"></i>
@@ -154,16 +187,14 @@
                 </div>
             </div>
 
-            <!-- Search Bar -->
             <div class="hidden md:flex flex-1 max-w-md mx-8 relative">
                 <input type="text" id="search-input" placeholder="ابحث عن أيدي تحكم، أجهزة، إكسسوارات..." 
                     class="w-full bg-cyber-card/80 text-sm text-slate-200 placeholder-slate-400 rounded-xl px-4 py-2.5 pr-10 border border-cyber-border focus:outline-none focus:border-cyber-primary transition-colors">
                 <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
             </div>
 
-            <!-- Action Buttons & Cart Trigger -->
             <div class="flex items-center gap-4">
-                <a href="https://wa.me/213556751958" target="_blank" class="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-500/20 transition">
+                <a href="https://wa.me/213557891556" target="_blank" class="hidden sm:flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-emerald-500/20 transition">
                     <i class="fa-brands fa-whatsapp text-sm"></i>
                     <span>طلب سريع</span>
                 </a>
@@ -174,18 +205,11 @@
                 </button>
             </div>
         </div>
-
-        <div class="px-4 pb-3 md:hidden">
-            <div class="relative">
-                <input type="text" id="mobile-search-input" placeholder="ابحث عن منتج..." 
-                    class="w-full bg-cyber-card text-sm text-slate-200 placeholder-slate-400 rounded-xl px-4 py-2 border border-cyber-border focus:outline-none focus:border-cyber-primary">
-            </div>
-        </div>
     </header>
 
     <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
 
-        <!-- Category Filters -->
+        <!-- الفلاتر والبحث -->
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-cyber-border/60 pb-6">
             <div>
                 <h1 class="text-2xl font-black text-white font-tajawal flex items-center gap-2">
@@ -202,7 +226,7 @@
             </div>
         </div>
 
-        <!-- Products Grid Container -->
+        <!-- المنتجات -->
         <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
 
         <div id="no-products" class="hidden text-center py-16 bg-cyber-card/40 rounded-3xl border border-cyber-border/50">
@@ -213,6 +237,28 @@
             <p class="text-xs text-slate-400">قم بإضافة المنتجات من لوحة التحكم لتظهر فوراً هنا.</p>
         </div>
 
+        <!-- قسم تتبع الطلب الجديد -->
+        <section class="max-w-2xl mx-auto my-12">
+            <div class="glass-panel p-6 sm:p-8 rounded-3xl border border-cyber-border bg-cyber-card/60 shadow-xl text-center space-y-4">
+                <div class="inline-flex p-3 rounded-2xl bg-cyber-primary/10 text-cyber-primary mb-1">
+                    <i class="fa-solid fa-magnifying-glass-location text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-black text-white">تتبع حالة طلبك في المتجر</h3>
+                <p class="text-xs text-slate-400">أدخل رقم الطلب العشوائي الذي ظهر لك عند إتمام الطلب (مثال: ORD-XXXXXX) لمعرفة حالته الفورية.</p>
+                
+                <div class="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
+                    <input type="text" id="track-order-input" placeholder="أدخل رقم الطلب (مثال: ORD-482910)..." 
+                        class="w-full bg-cyber-dark text-sm text-slate-200 placeholder-slate-500 rounded-xl px-4 py-3 border border-cyber-border focus:border-cyber-primary focus:outline-none text-center sm:text-right font-mono uppercase">
+                    <button onclick="trackCustomerOrder()" class="px-6 py-3 bg-cyber-primary text-black font-extrabold text-xs rounded-xl hover:bg-cyan-300 transition whitespace-nowrap shadow-lg shadow-cyber-primary/20">
+                        تتبع الآن
+                    </button>
+                </div>
+
+                <!-- صندوق إشعارات حالة الطلب -->
+                <div id="track-result-box" class="hidden mt-4 p-4 rounded-xl border text-right transition-all duration-300"></div>
+            </div>
+        </section>
+
     </main>
 
     <!-- Footer -->
@@ -220,14 +266,14 @@
         <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
             <p>© 2026 NASRO STORE. جميع الحقوق محفوظة.</p>
             
-           <a href="https://wa.me/213557891556" target="_blank" class="text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 bg-cyber-card px-3 py-1.5 rounded-lg border border-cyber-border hover:border-emerald-500/40">
-    <i class="fa-brands fa-whatsapp text-emerald-400 text-sm"></i>
-    <span>NASRO MHB (مطور مواقع - Web Developer)</span>
-</a>
+            <a href="https://wa.me/213557891556" target="_blank" class="text-slate-400 hover:text-emerald-400 transition flex items-center gap-1.5 bg-cyber-card px-3 py-1.5 rounded-lg border border-cyber-border hover:border-emerald-500/40">
+                <i class="fa-brands fa-whatsapp text-emerald-400 text-sm"></i>
+                <span>مهدي بورفيس (صانع مواقع ويب - Web Developer)</span>
+            </a>
         </div>
     </footer>
 
-    <!-- PRODUCT DETAILS MODAL -->
+    <!-- Modals & Drawers -->
     <div id="product-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
         <div class="bg-cyber-card border border-cyber-border rounded-3xl max-w-lg w-full p-6 shadow-2xl relative space-y-4">
             <button id="close-details-modal" class="absolute top-4 left-4 text-slate-400 hover:text-white p-2">
@@ -237,7 +283,6 @@
         </div>
     </div>
 
-    <!-- SHOPPING CART DRAWER -->
     <div id="cart-drawer" class="fixed inset-0 z-50 overflow-hidden hidden">
         <div id="cart-overlay" class="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity"></div>
         <div class="fixed inset-y-0 left-0 max-w-full flex">
@@ -247,28 +292,22 @@
                         <i class="fa-solid fa-bag-shopping text-cyber-primary text-xl"></i>
                         <h2 class="text-lg font-black text-white">سلة التسوق</h2>
                     </div>
-                    <button id="close-cart-btn" class="text-slate-400 hover:text-white p-2 text-lg">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
+                    <button id="close-cart-btn" class="text-slate-400 hover:text-white p-2 text-lg"><i class="fa-solid fa-xmark"></i></button>
                 </div>
-
                 <div id="cart-items-container" class="flex-1 overflow-y-auto py-4 space-y-3"></div>
-
                 <div class="border-t border-cyber-border pt-4 space-y-4">
                     <div class="flex justify-between items-center text-sm">
                         <span class="text-slate-400 font-bold">الإجمالي الكلي:</span>
                         <span id="cart-total-price" class="text-xl font-black text-cyber-primary">0 د.ج</span>
                     </div>
-
                     <div class="grid grid-cols-1 gap-2.5">
                         <button id="open-checkout-form-btn" class="w-full py-3.5 rounded-xl font-extrabold text-black bg-cyber-primary hover:bg-cyan-300 transition shadow-lg shadow-cyber-primary/20 flex items-center justify-center gap-2">
                             <i class="fa-solid fa-file-signature text-base"></i>
                             <span>تأكيد الطلب السحابي</span>
                         </button>
-                        
                         <button id="checkout-whatsapp-btn" class="w-full py-3 rounded-xl font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition flex items-center justify-center gap-2 text-xs">
                             <i class="fa-brands fa-whatsapp text-base"></i>
-                            <span>طلب سريع عبر واتساب (للمالك)[cite: 4]</span>
+                            <span>طلب سريع عبر واتساب</span>
                         </button>
                     </div>
                 </div>
@@ -276,13 +315,9 @@
         </div>
     </div>
 
-    <!-- CUSTOMER CHECKOUT MODAL FORM -->
     <div id="checkout-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md hidden">
         <div class="bg-cyber-card border border-cyber-border rounded-3xl max-w-lg w-full p-6 sm:p-8 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <button id="close-checkout-modal" class="absolute top-5 left-5 text-slate-400 hover:text-white text-lg">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-            
+            <button id="close-checkout-modal" class="absolute top-5 left-5 text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
             <div>
                 <h2 class="text-xl font-black text-white flex items-center gap-2">
                     <i class="fa-solid fa-truck-fast text-cyber-primary"></i>
@@ -290,39 +325,29 @@
                 </h2>
                 <p class="text-xs text-slate-400 mt-1">يرجى ملء البيانات لتأكيد طلبك وحفظه في السحابة</p>
             </div>
-
             <form id="customer-order-form" class="space-y-4 text-right">
                 <div>
                     <label class="block text-xs font-bold text-slate-300 mb-1.5">الاسم واللقب *</label>
-                    <input type="text" id="cust-name" required placeholder="مثال: محمد الأمين" 
-                        class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
+                    <input type="text" id="cust-name" required placeholder="مثال: محمد الأمين" class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
                 </div>
-
                 <div>
                     <label class="block text-xs font-bold text-slate-300 mb-1.5">رقم الهاتف *</label>
-                    <input type="tel" id="cust-phone" required placeholder="0550 00 00 00" 
-                        class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
+                    <input type="tel" id="cust-phone" required placeholder="0550 00 00 00" class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
                 </div>
-
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-xs font-bold text-slate-300 mb-1.5">الولاية *</label>
-                        <input type="text" id="cust-wilaya" required placeholder="مثال: الجزائر / قسنطينة" 
-                            class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
+                        <input type="text" id="cust-wilaya" required placeholder="مثال: الجزائر / قسنطينة" class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-300 mb-1.5">العنوان بالتفصيل</label>
-                        <input type="text" id="cust-address" placeholder="البلدية / الشارع" 
-                            class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
+                        <input type="text" id="cust-address" placeholder="البلدية / الشارع" class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none">
                     </div>
                 </div>
-
                 <div>
                     <label class="block text-xs font-bold text-slate-300 mb-1.5">ملاحظات إضافية للطلب</label>
-                    <textarea id="cust-notes" rows="2" placeholder="أي تفاصيل خاصة باللون أو وقت الاستلام..." 
-                        class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none"></textarea>
+                    <textarea id="cust-notes" rows="2" placeholder="أي تفاصيل خاصة باللون أو وقت الاستلام..." class="w-full bg-cyber-dark text-sm text-slate-200 rounded-xl px-4 py-2.5 border border-cyber-border focus:border-cyber-primary focus:outline-none"></textarea>
                 </div>
-
                 <div class="p-4 bg-cyber-dark/80 rounded-xl border border-cyber-border space-y-2 text-xs">
                     <div class="flex justify-between text-slate-400">
                         <span>عدد العناصر:</span>
@@ -333,7 +358,6 @@
                         <span id="summary-total-price" class="text-cyber-primary font-black">0 د.ج</span>
                     </div>
                 </div>
-
                 <button type="submit" class="w-full py-3.5 rounded-xl font-extrabold text-black bg-cyber-primary hover:bg-cyan-300 transition shadow-lg shadow-cyber-primary/20 flex items-center justify-center gap-2">
                     <i class="fa-solid fa-check-circle text-lg"></i>
                     <span>تأكيد وإرسال الطلب للسحابة</span>
@@ -342,19 +366,18 @@
         </div>
     </div>
 
-    <!-- ORDER SUCCESS / PENDING NOTICE MODAL -->
+    <!-- نافذة نجاح الطلب مع إظهار الرقم العشوائي للزبون -->
     <div id="success-order-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md hidden">
-        <div class="bg-cyber-card border border-cyan-500/40 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 text-center shadow-2xl relative animate-in fade-in zoom-in duration-300">
+        <div class="bg-cyber-card border border-cyan-500/40 rounded-3xl max-w-md w-full p-6 sm:p-8 space-y-6 text-center shadow-2xl relative">
             <div class="w-20 h-20 bg-cyan-500/10 border border-cyan-500/30 rounded-full flex items-center justify-center text-cyan-400 text-3xl mx-auto shadow-inner animate-bounce">
-                <i class="fa-solid fa-clock-rotate-left"></i>
+                <i class="fa-solid fa-check"></i>
             </div>
-            
             <div class="space-y-2">
                 <h2 class="text-2xl font-black text-white">تم إرسال طلبك بنجاح!</h2>
-                <p class="text-sm text-cyan-300 font-bold">انتظار معالجة الطلب، سيتصلون بك لتأكيد الطلب</p>
-                <p class="text-xs text-slate-400 leading-relaxed pt-2">شكراً لتسوقك معنا في NASRO STORE. لقد تم تسجيل طلبك في السحابة وسيتم التواصل معك قريباً عبر الهاتف لتأكيد عملية التوصيل.</p>
+                <p class="text-xs text-slate-300">رقم طلبك العشوائي للمتابعة هو:</p>
+                <div id="generated-order-id-badge" class="py-2.5 px-4 bg-cyber-dark border border-cyber-primary/50 text-cyber-primary font-mono text-lg font-black rounded-xl inline-block tracking-widest">ORD-XXXXXX</div>
+                <p class="text-xs text-cyan-300 font-bold pt-1">احتفظ به لتتبع حالة قبول أو رفض طلبك في الأسفل</p>
             </div>
-
             <button onclick="closeSuccessModal()" class="w-full py-3 rounded-xl font-extrabold text-black bg-cyber-primary hover:bg-cyan-300 transition shadow-lg shadow-cyber-primary/20">
                 حسناً، فهمت
             </button>
@@ -363,7 +386,6 @@
 
     <script>
         const safeGet = (id) => document.getElementById(id);
-
         window.appProducts = [];
         let cart = JSON.parse(localStorage.getItem('nexus_cart')) || [];
         let currentFilter = 'all';
@@ -382,7 +404,6 @@
             const grid = safeGet('products-grid');
             const noProd = safeGet('no-products');
             if (!grid) return;
-
             grid.innerHTML = '';
 
             const filtered = window.appProducts.filter(p => {
@@ -393,11 +414,8 @@
                 return matchesCat && matchesSearch;
             });
 
-            if (filtered.length === 0) {
-                noProd?.classList.remove('hidden');
-            } else {
-                noProd?.classList.add('hidden');
-            }
+            if (filtered.length === 0) noProd?.classList.remove('hidden');
+            else noProd?.classList.add('hidden');
 
             filtered.forEach(p => {
                 const card = document.createElement('div');
@@ -411,28 +429,20 @@
                         <img src="${p.image}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
                         ${productBadge ? `<span class="absolute top-3 right-3 bg-cyber-pink text-white text-[10px] font-extrabold px-2.5 py-1 rounded-lg border border-cyber-pink/50 shadow-lg">${productBadge}</span>` : ''}
                     </div>
-
                     <div class="p-5 flex flex-col flex-grow justify-between space-y-4">
                         <div class="space-y-1">
                             <span class="text-[10px] font-bold text-cyber-primary tracking-wider uppercase">${productCategory}</span>
                             <h3 class="font-bold text-white text-base line-clamp-1 group-hover:text-cyber-primary transition">${p.name}</h3>
                             <p class="text-xs text-slate-400 line-clamp-2 leading-relaxed">${productDesc}</p>
                         </div>
-
                         <div class="pt-3 border-t border-cyber-border/60 flex items-center justify-between">
                             <div>
                                 <span class="text-[10px] text-slate-400 block">السعر النقدي</span>
                                 <span class="text-lg font-black text-white">${formatPrice(p.price)} <span class="text-xs text-cyber-primary font-bold">د.ج</span></span>
                             </div>
-
                             <div class="flex gap-2">
-                                <button onclick="openProductModal('${p.id}')" class="p-2.5 rounded-xl bg-cyber-dark border border-cyber-border hover:border-cyber-primary text-slate-300 hover:text-white transition">
-                                    <i class="fa-solid fa-eye text-xs"></i>
-                                </button>
-                                <button onclick="addToCart('${p.id}')" class="px-3.5 py-2.5 rounded-xl bg-cyber-primary text-black font-extrabold text-xs hover:bg-cyan-300 transition shadow-md flex items-center gap-1.5">
-                                    <i class="fa-solid fa-cart-plus"></i>
-                                    <span>إضافة</span>
-                                </button>
+                                <button onclick="openProductModal('${p.id}')" class="p-2.5 rounded-xl bg-cyber-dark border border-cyber-border hover:border-cyber-primary text-slate-300 hover:text-white transition"><i class="fa-solid fa-eye text-xs"></i></button>
+                                <button onclick="addToCart('${p.id}')" class="px-3.5 py-2.5 rounded-xl bg-cyber-primary text-black font-extrabold text-xs hover:bg-cyan-300 transition shadow-md flex items-center gap-1.5"><i class="fa-solid fa-cart-plus"></i><span>إضافة</span></button>
                             </div>
                         </div>
                     </div>
@@ -444,56 +454,31 @@
         window.openProductModal = function(id) {
             const p = window.appProducts.find(item => item.id === id);
             if (!p) return;
-
             const content = safeGet('modal-content');
             if (!content) return;
-
-            const productDesc = p.desc || p.description || '';
-            const productBadge = p.badge || p.tag || '';
-            const productCategory = p.category || 'عام';
-
             content.innerHTML = `
-                <div class="h-56 rounded-2xl overflow-hidden relative border border-cyber-border">
-                    <img src="${p.image}" class="w-full h-full object-cover">
-                    ${productBadge ? `<span class="absolute top-3 right-3 bg-cyber-pink text-white text-xs font-bold px-3 py-1 rounded-lg">${productBadge}</span>` : ''}
-                </div>
-                <div class="space-y-2">
-                    <span class="text-xs font-bold text-cyber-primary">${productCategory}</span>
-                    <h2 class="text-xl font-extrabold text-white">${p.name}</h2>
-                    <p class="text-xs text-slate-300 leading-relaxed">${productDesc}</p>
-                </div>
+                <div class="h-56 rounded-2xl overflow-hidden relative border border-cyber-border"><img src="${p.image}" class="w-full h-full object-cover"></div>
+                <div class="space-y-2"><h2 class="text-xl font-extrabold text-white">${p.name}</h2><p class="text-xs text-slate-300 leading-relaxed">${p.desc || ''}</p></div>
                 <div class="flex justify-between items-center pt-4 border-t border-cyber-border">
                     <span class="text-2xl font-black text-cyber-primary">${formatPrice(p.price)} د.ج</span>
-                    <button onclick="addToCart('${p.id}'); closeModal();" class="px-5 py-2.5 bg-cyber-primary text-black font-extrabold text-xs rounded-xl hover:bg-cyan-300 transition">
-                        إضافة للسلة
-                    </button>
+                    <button onclick="addToCart('${p.id}'); closeModal();" class="px-5 py-2.5 bg-cyber-primary text-black font-extrabold text-xs rounded-xl hover:bg-cyan-300 transition">إضافة للسلة</button>
                 </div>
             `;
-
-            const modal = safeGet('product-modal');
-            modal?.classList.remove('hidden');
-            setTimeout(() => modal?.classList.remove('opacity-0'), 10);
+            safeGet('product-modal')?.classList.remove('hidden');
+            setTimeout(() => safeGet('product-modal')?.classList.remove('opacity-0'), 10);
         };
 
         function closeModal() {
-            const modal = safeGet('product-modal');
-            if (modal) {
-                modal.classList.add('opacity-0');
-                setTimeout(() => modal.classList.add('hidden'), 300);
-            }
+            safeGet('product-modal')?.classList.add('opacity-0');
+            setTimeout(() => safeGet('product-modal')?.classList.add('hidden'), 300);
         }
 
         window.addToCart = function(id) {
             const product = window.appProducts.find(p => p.id === id);
             if (!product) return;
-
             const existing = cart.find(item => item.id === id);
-            if (existing) {
-                existing.quantity += 1;
-            } else {
-                cart.push({ ...product, quantity: 1 });
-            }
-
+            if (existing) existing.quantity += 1;
+            else cart.push({ ...product, quantity: 1 });
             saveCartToStorage();
             updateCartUI();
             showToast(`تمت إضافة "${product.name}" إلى السلة`, 'success');
@@ -503,44 +488,30 @@
             const container = safeGet('cart-items-container');
             const totalEl = safeGet('cart-total-price');
             const badge = safeGet('cart-badge');
-            
             if (!container) return;
             container.innerHTML = '';
-
             const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
             const totalPrice = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
             if (badge) {
                 badge.innerText = totalQuantity;
                 if (totalQuantity > 0) badge.classList.remove('hidden');
                 else badge.classList.add('hidden');
             }
-
             if (totalEl) totalEl.innerText = `${formatPrice(totalPrice)} د.ج`;
-
             if (cart.length === 0) {
-                container.innerHTML = `
-                    <div class="text-center py-12 text-slate-500 space-y-3">
-                        <i class="fa-solid fa-basket-shopping text-4xl text-slate-600"></i>
-                        <p class="text-xs font-bold">سلة التسوق فارغة حالياً</p>
-                    </div>
-                `;
+                container.innerHTML = `<div class="text-center py-12 text-slate-500 space-y-3"><i class="fa-solid fa-basket-shopping text-4xl text-slate-600"></i><p class="text-xs font-bold">سلة التسوق فارغة حالياً</p></div>`;
                 return;
             }
-
             cart.forEach(item => {
                 const row = document.createElement('div');
                 row.className = 'flex items-center justify-between p-3 bg-cyber-dark/60 rounded-xl border border-cyber-border/60 gap-3';
                 row.innerHTML = `
                     <img src="${item.image}" class="w-12 h-12 rounded-lg object-cover bg-black/40">
-                    <div class="flex-1 min-w-0">
-                        <h4 class="text-xs font-bold text-white truncate">${item.name}</h4>
-                        <span class="text-[11px] text-cyber-primary font-bold">${formatPrice(item.price)} د.ج</span>
-                    </div>
+                    <div class="flex-1 min-w-0"><h4 class="text-xs font-bold text-white truncate">${item.name}</h4><span class="text-[11px] text-cyber-primary font-bold">${formatPrice(item.price)} د.ج</span></div>
                     <div class="flex items-center gap-2">
-                        <button onclick="changeQty('${item.id}', -1)" class="w-6 h-6 rounded bg-cyber-card text-slate-300 flex items-center justify-center text-xs hover:border-cyber-primary border border-cyber-border">-</button>
+                        <button onclick="changeQty('${item.id}', -1)" class="w-6 h-6 rounded bg-cyber-card text-slate-300 flex items-center justify-center text-xs border border-cyber-border">-</button>
                         <span class="text-xs font-bold text-white w-4 text-center">${item.quantity}</span>
-                        <button onclick="changeQty('${item.id}', 1)" class="w-6 h-6 rounded bg-cyber-card text-slate-300 flex items-center justify-center text-xs hover:border-cyber-primary border border-cyber-border">+</button>
+                        <button onclick="changeQty('${item.id}', 1)" class="w-6 h-6 rounded bg-cyber-card text-slate-300 flex items-center justify-center text-xs border border-cyber-border">+</button>
                     </div>
                 `;
                 container.appendChild(row);
@@ -550,64 +521,33 @@
         window.changeQty = function(id, delta) {
             const item = cart.find(i => i.id === id);
             if (!item) return;
-
             item.quantity += delta;
-            if (item.quantity <= 0) {
-                cart = cart.filter(i => i.id !== id);
-            }
-
+            if (item.quantity <= 0) cart = cart.filter(i => i.id !== id);
             saveCartToStorage();
             updateCartUI();
         };
 
-        function saveCartToStorage() {
-            localStorage.setItem('nexus_cart', JSON.stringify(cart));
-        }
+        function saveCartToStorage() { localStorage.setItem('nexus_cart', JSON.stringify(cart)); }
 
         function openCheckoutFormModal() {
-            if (cart.length === 0) {
-                showToast('السلة فارغة! أضف منتجات قبل تأكيد الطلب', 'error');
-                return;
-            }
-
-            const totalQty = cart.reduce((acc, i) => acc + i.quantity, 0);
-            const totalPrice = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-
-            if (safeGet('summary-items-count')) safeGet('summary-items-count').innerText = totalQty;
-            if (safeGet('summary-total-price')) safeGet('summary-total-price').innerText = `${formatPrice(totalPrice)} د.ج`;
-
+            if (cart.length === 0) { showToast('السلة فارغة!', 'error'); return; }
+            safeGet('summary-items-count').innerText = cart.reduce((acc, i) => acc + i.quantity, 0);
+            safeGet('summary-total-price').innerText = `${formatPrice(cart.reduce((acc, i) => acc + (i.price * i.quantity), 0))} د.ج`;
             safeGet('cart-drawer')?.classList.add('hidden');
             safeGet('checkout-modal')?.classList.remove('hidden');
         }
 
-        function closeSuccessModal() {
-            safeGet('success-order-modal')?.classList.add('hidden');
-        }
+        function closeSuccessModal() { safeGet('success-order-modal')?.classList.add('hidden'); }
 
         function checkoutViaWhatsApp() {
-            if (cart.length === 0) {
-                showToast('السلة فارغة!', 'error');
-                return;
-            }
-
-            let text = "مرحباً NASRO STORE 👋، أرغب في طلب المنتجات التالية:\n\n";
-            cart.forEach((item, index) => {
-                text += `${index + 1}. ${item.name} (العدد: ${item.quantity}) - ${formatPrice(item.price * item.quantity)} د.ج\n`;
-            });
-
-            const total = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
-            text += `\nإجمالي المشتريات: ${formatPrice(total)} د.ج\nيرجى التواصل لتأكيد التوصيل.`;
-
-            const url = `https://wa.me/213556751958?text=${encodeURIComponent(text)}`;
-            window.open(url, '_blank');
+            if (cart.length === 0) return;
+            let text = "مرحباً NASRO STORE 👋، أرغب في طلب:\n\n";
+            cart.forEach((item, index) => { text += `${index + 1}. ${item.name} (${item.quantity})\n`; });
+            window.open(`https://wa.me/213557891556?text=${encodeURIComponent(text)}`, '_blank');
         }
 
         function setupEventListeners() {
-            const bind = (id, event, handler) => {
-                const el = typeof id === 'string' ? safeGet(id) : id;
-                if (el) el.addEventListener(event, handler);
-            };
-
+            const bind = (id, event, handler) => { safeGet(id)?.addEventListener(event, handler); };
             bind('cart-btn', 'click', () => safeGet('cart-drawer')?.classList.remove('hidden'));
             bind('close-cart-btn', 'click', () => safeGet('cart-drawer')?.classList.add('hidden'));
             bind('cart-overlay', 'click', () => safeGet('cart-drawer')?.classList.add('hidden'));
@@ -616,88 +556,61 @@
             bind('close-checkout-modal', 'click', () => safeGet('checkout-modal')?.classList.add('hidden'));
             bind('close-details-modal', 'click', closeModal);
 
-            // Customer Order Submit
             bind('customer-order-form', 'submit', async (e) => {
                 e.preventDefault();
                 if (cart.length === 0) return;
-
-                const name = safeGet('cust-name').value.trim();
-                const phone = safeGet('cust-phone').value.trim();
-                const wilaya = safeGet('cust-wilaya').value.trim();
-                const address = safeGet('cust-address').value.trim();
-                const notes = safeGet('cust-notes').value.trim();
-                const totalPrice = cart.reduce((acc, i) => acc + (i.price * i.quantity), 0);
 
                 const orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
                 const newOrder = {
                     id: orderId,
                     date: new Date().toLocaleString('ar-DZ'),
-                    customer: { name, phone, wilaya, address, notes },
+                    customer: {
+                        name: safeGet('cust-name').value.trim(),
+                        phone: safeGet('cust-phone').value.trim(),
+                        wilaya: safeGet('cust-wilaya').value.trim(),
+                        address: safeGet('cust-address').value.trim(),
+                        notes: safeGet('cust-notes').value.trim()
+                    },
                     items: [...cart],
-                    totalPrice: totalPrice,
+                    totalPrice: cart.reduce((acc, i) => acc + (i.price * i.quantity), 0),
                     status: 'جديد'
                 };
 
                 const success = await window.sendOrderToCloud(newOrder);
-
                 if (success) {
                     cart = [];
                     saveCartToStorage();
                     updateCartUI();
-
                     safeGet('checkout-modal')?.classList.add('hidden');
                     safeGet('customer-order-form')?.reset();
-
+                    safeGet('generated-order-id-badge').innerText = orderId;
                     safeGet('success-order-modal')?.classList.remove('hidden');
                 } else {
-                    showToast('حدث خطأ أثناء إرسال الطلب للسحابة.', 'error');
+                    showToast('خطأ في إرسال الطلب.', 'error');
                 }
             });
 
-            const catFilters = safeGet('category-filters');
-            if (catFilters) {
-                catFilters.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('filter-btn')) {
-                        document.querySelectorAll('.filter-btn').forEach(btn => {
-                            btn.className = 'filter-btn px-4 py-2 rounded-xl border border-cyber-border bg-cyber-card text-slate-300 hover:border-cyber-primary transition text-xs whitespace-nowrap';
-                        });
-                        e.target.className = 'filter-btn active px-4 py-2 rounded-xl border border-cyber-primary bg-cyber-primary text-black font-extrabold transition text-xs whitespace-nowrap';
-                        currentFilter = e.target.dataset.category;
-                        window.renderProducts();
-                    }
-                });
-            }
+            safeGet('category-filters')?.addEventListener('click', (e) => {
+                if (e.target.classList.contains('filter-btn')) {
+                    document.querySelectorAll('.filter-btn').forEach(btn => btn.className = 'filter-btn px-4 py-2 rounded-xl border border-cyber-border bg-cyber-card text-slate-300 transition text-xs whitespace-nowrap');
+                    e.target.className = 'filter-btn active px-4 py-2 rounded-xl border border-cyber-primary bg-cyber-primary text-black font-extrabold transition text-xs whitespace-nowrap';
+                    currentFilter = e.target.dataset.category;
+                    window.renderProducts();
+                }
+            });
 
             const handleSearch = (e) => { searchQuery = e.target.value; window.renderProducts(); };
             bind('search-input', 'input', handleSearch);
-            bind('mobile-search-input', 'input', handleSearch);
         }
 
         function showToast(message, type = 'info') {
             const container = safeGet('toast-container');
             if (!container) return;
-
             const toast = document.createElement('div');
-            let bg = 'bg-slate-800 border-slate-700 text-white';
-            let icon = 'fa-circle-info text-cyber-primary';
-
-            if (type === 'success') {
-                bg = 'bg-cyber-card border-emerald-500/50 text-white';
-                icon = 'fa-circle-check text-emerald-400';
-            } else if (type === 'error') {
-                bg = 'bg-cyber-card border-rose-500/50 text-white';
-                icon = 'fa-triangle-exclamation text-rose-400';
-            }
-
-            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl transition-all duration-300 text-xs font-bold ${bg}`;
-            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span>${message}</span>`;
-
+            toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl border shadow-xl text-xs font-bold bg-cyber-card border-cyan-500/50 text-white`;
+            toast.innerHTML = `<i class="fa-solid fa-circle-info text-cyber-primary text-base"></i><span>${message}</span>`;
             container.appendChild(toast);
-
-            setTimeout(() => {
-                toast.style.opacity = '0';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+            setTimeout(() => toast.remove(), 3000);
         }
 
         document.addEventListener('DOMContentLoaded', initApp);
