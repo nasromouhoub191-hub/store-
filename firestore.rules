@@ -4,7 +4,7 @@ service cloud.firestore {
 
     // ضع هنا UID حساب المدير (Firebase Console > Authentication > Users)
     function isAdmin() {
-      return request.auth != null && request.auth.uid == 'PUT_ADMIN_UID_HERE';
+      return request.auth != null && request.auth.uid == 'tQB1ZZJiNpUZs2f9aBHx3Sk7f9T2';
     }
     function str(v, max) {
       return v is string && v.size() > 0 && v.size() <= max;
