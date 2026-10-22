@@ -3,10 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة إدارة المتجر الشاملة - NASRO STORE</title>
+    <title>لوحة إدارة المتجر الشاملة السحابية - NASRO STORE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Firebase SDK v9 Module -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDhtAe06W15Cv0EpCGa3xa3-X9yVVslG2Y",
+            authDomain: "nasro-store.firebaseapp.com",
+            projectId: "nasro-store",
+            storageBucket: "nasro-store.firebasestorage.app",
+            messagingSenderId: "878774398502",
+            appId: "1:878774398502:web:b1f54e33066db9045e00e7"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // مراقبة المنتجات في الوقت الفعلي من السحابة
+        onSnapshot(collection(db, "products"), (snapshot) => {
+            document.getElementById('productCountHeader').innerText = `قائمة المنتجات (${snapshot.size})`;
+            const tbody = document.getElementById('productsTableBody');
+            if (snapshot.empty) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-400">لا توجد منتجات مضافة حالياً في السحابة</td></tr>`;
+                return;
+            }
+
+            let html = '';
+            snapshot.forEach((docSnap) => {
+                const p = docSnap.data();
+                const id = docSnap.id;
+                html += `
+                    <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+                        <td class="p-4 flex items-center gap-3">
+                            <img src="${p.image}" class="w-10 h-10 object-cover rounded-lg border border-gray-700">
+                            <span class="font-bold text-white">${p.name}</span>
+                        </td>
+                        <td class="p-4 text-gray-300">${p.category || 'عام'}</td>
+                        <td class="p-4 text-cyan-400 font-bold">${p.price} د.ج</td>
+                        <td class="p-4"><span class="px-2 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-md text-xs">${p.badge || 'بدون شارة'}</span></td>
+                        <td class="p-4 text-center">
+                            <button onclick="deleteProductDoc('${id}')" class="px-3 py-1 bg-rose-500/20 text-rose-400 rounded-lg text-xs hover:bg-rose-500/30 transition">
+                                <i class="fa-solid fa-trash"></i> حذف
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            tbody.innerHTML = html;
+        });
+
+        // مراقبة الطلبات الواردة في الوقت الفعلي من السحابة
+        onSnapshot(collection(db, "orders"), (snapshot) => {
+            const container = document.getElementById('ordersContainer');
+            if (snapshot.empty) {
+                container.innerHTML = `<p class="text-gray-400 text-center py-8">لا توجد طلبات سحابية جديدة حتى الآن</p>`;
+                return;
+            }
+
+            let html = '';
+            snapshot.forEach((docSnap) => {
+                const o = docSnap.data();
+                const id = docSnap.id;
+                html += `
+                    <div class="glass-panel p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border border-gray-800">
+                        <div>
+                            <p class="font-bold text-white">${o.customerName || 'زبون'} - ${o.phone || ''}</p>
+                            <p class="text-xs text-gray-400">الولاية: ${o.wilaya || 'غير محدد'} | المنتج: ${o.productName || ''}</p>
+                        </div>
+                        <button onclick="deleteOrderDoc('${id}')" class="px-3 py-1 bg-rose-500/20 text-rose-400 rounded-lg text-sm hover:bg-rose-500/30">حذف الطلب</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        });
+
+        // حفظ منتج جديد في السحابة
+        window.saveProductCloud = async function(e) {
+            e.preventDefault();
+            const name = document.getElementById('prodName').value;
+            const price = document.getElementById('prodPrice').value;
+            const category = document.getElementById('prodCategory').value;
+            const badge = document.getElementById('prodBadge').value;
+            const urlImg = document.getElementById('prodImage').value;
+            const desc = document.getElementById('prodDesc').value;
+
+            const finalImage = window.uploadedBase64Img || urlImg;
+
+            if(!finalImage) {
+                alert('يرجى تحديد صورة عبر الرابط أو رفعها من الجهاز!');
+                return;
+            }
+
+            try {
+                await addDoc(collection(db, "products"), {
+                    name, price, category, badge, image: finalImage, desc,
+                    createdAt: serverTimestamp()
+                });
+                
+                document.getElementById('productForm').reset();
+                window.uploadedBase64Img = "";
+                toggleProductForm();
+                alert('تم حفظ ونشر المنتج في السحابة بنجاح!');
+            } catch (err) {
+                alert('خطأ أثناء الحفظ في السحابة: ' + err.message);
+            }
+        };
+
+        window.deleteProductDoc = async function(id) {
+            if(confirm('هل أنت متأكد من حذف المنتج من السحابة؟')) {
+                try {
+                    await deleteDoc(doc(db, "products", id));
+                } catch (err) {
+                    alert('خطأ أثناء الحذف: ' + err.message);
+                }
+            }
+        };
+
+        window.deleteOrderDoc = async function(id) {
+            if(confirm('هل تريد حذف هذا الطلب من السحابة؟')) {
+                try {
+                    await deleteDoc(doc(db, "orders", id));
+                } catch (err) {
+                    alert('خطأ أثناء حذف الطلب: ' + err.message);
+                }
+            }
+        };
+    </script>
+
     <style>
         body { font-family: 'Tajawal', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
         .glass-panel { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
@@ -47,8 +176,8 @@
                     <i class="fa-solid fa-sliders text-2xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-2xl font-bold text-white">لوحة إدارة المتجر الشاملة</h1>
-                    <p class="text-xs text-gray-400">NASRO STORE - إدارة المنتجات، الطلبات، والتنبيهات</p>
+                    <h1 class="text-2xl font-bold text-white">لوحة إدارة المتجر السحابية</h1>
+                    <p class="text-xs text-gray-400">NASRO STORE - إدارة المنتجات والطلبات عبر Firebase</p>
                 </div>
             </div>
             <button onclick="logout()" class="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition text-sm">
@@ -71,11 +200,11 @@
 
         <!-- قسم الطلبات -->
         <section id="sec-orders" class="hidden space-y-4">
-            <h2 class="text-xl font-bold text-white mb-4">قائمة الطلبات الواردة</h2>
+            <h2 class="text-xl font-bold text-white mb-4">قائمة الطلبات السحابية الواردة</h2>
             <div id="ordersContainer" class="space-y-4"></div>
         </section>
 
-        <!-- قسم المنتجات (الواجهة المطابقة بالكامل للصورة) -->
+        <!-- قسم المنتجات -->
         <section id="sec-products" class="space-y-6">
             <div class="flex justify-between items-center">
                 <button onclick="toggleProductForm()" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-5 py-2.5 rounded-full transition flex items-center gap-2 shadow-lg shadow-cyan-500/20 text-sm">
@@ -85,12 +214,10 @@
             </div>
 
             <!-- نموذج إضافة المنتجات -->
-            <div id="productFormBox" class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-5">
-                <h3 class="text-lg font-bold text-cyan-400 border-b border-gray-800 pb-3">إضافة منتج جديد</h3>
+            <div id="productFormBox" class="hidden glass-panel p-6 rounded-2xl border border-gray-800 space-y-5">
+                <h3 class="text-lg font-bold text-cyan-400 border-b border-gray-800 pb-3">إضافة منتج جديد للسحابة</h3>
                 
-                <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4">
-                    <input type="hidden" id="prodId">
-                    
+                <form id="productForm" onsubmit="saveProductCloud(event)" class="space-y-4">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label class="block text-xs font-medium text-gray-300 mb-1">اسم المنتج *</label>
@@ -144,7 +271,7 @@
 
                     <div class="flex gap-3 pt-2">
                         <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-6 py-2.5 rounded-xl transition text-sm">
-                            حفظ المنتج
+                            حفظ ونشر بالسحابة
                         </button>
                         <button type="button" onclick="toggleProductForm()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-6 py-2.5 rounded-xl transition text-sm">
                             إلغاء
@@ -153,7 +280,7 @@
                 </form>
             </div>
 
-            <!-- جدول عرض المنتجات (مطابق لمكونات الصورة) -->
+            <!-- جدول عرض المنتجات -->
             <div class="glass-panel rounded-2xl overflow-hidden border border-gray-800">
                 <div class="overflow-x-auto">
                     <table class="w-full text-right text-sm">
@@ -166,15 +293,13 @@
                                 <th class="p-4 text-center">إجراءات</th>
                             </tr>
                         </thead>
-                        <tbody id="productsTableBody">
-                            <!-- المخرجات الديناميكية تمشي هنا -->
-                        </tbody>
+                        <tbody id="productsTableBody"></tbody>
                     </table>
                 </div>
             </div>
         </section>
 
-        <!-- قسم الإعدادات وتغيير كلمة السر -->
+        <!-- قسم الإعدادات -->
         <section id="sec-settings" class="hidden space-y-6">
             <div class="glass-panel p-6 rounded-2xl max-w-2xl mx-auto space-y-4">
                 <div class="flex items-center gap-3 border-b border-gray-800 pb-4">
@@ -221,7 +346,7 @@
     </div>
 
     <script>
-        let uploadedBase64Img = "";
+        window.uploadedBase64Img = "";
 
         function handleLogin(e) {
             e.preventDefault();
@@ -232,7 +357,7 @@
                 sessionStorage.setItem('isAdminLoggedIn', 'true');
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
-                loadData();
+                loadSettings();
             } else {
                 alert('كلمة المرور غير صحيحة!');
             }
@@ -242,7 +367,7 @@
             if (sessionStorage.getItem('isAdminLoggedIn') === 'true') {
                 document.getElementById('loginModal').classList.add('hidden');
                 document.getElementById('adminContent').classList.remove('hidden');
-                loadData();
+                loadSettings();
             }
         }
 
@@ -270,16 +395,10 @@
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(evt) {
-                    uploadedBase64Img = evt.target.result;
+                    window.uploadedBase64Img = evt.target.result;
                 };
                 reader.readAsDataURL(file);
             }
-        }
-
-        function loadData() {
-            loadOrders();
-            loadProducts();
-            loadSettings();
         }
 
         function loadSettings() {
@@ -314,95 +433,6 @@
             alert('تم تغيير كلمة المرور بنجاح!');
             document.getElementById('currPass').value = '';
             document.getElementById('newPass').value = '';
-        }
-
-        function loadOrders() {
-            const orders = JSON.parse(localStorage.getItem('nasro_orders') || '[]');
-            const container = document.getElementById('ordersContainer');
-            if(orders.length === 0) {
-                container.innerHTML = `<p class="text-gray-400 text-center py-8">لا توجد طلبات جديدة حتى الآن</p>`;
-                return;
-            }
-            container.innerHTML = orders.map((o, idx) => `
-                <div class="glass-panel p-4 rounded-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                    <div>
-                        <p class="font-bold text-white">${o.customerName} - ${o.phone}</p>
-                        <p class="text-xs text-gray-400">${o.wilaya} | المنتج: ${o.productName} (${o.price} د.ج)</p>
-                        <p class="text-xs text-cyan-400 mt-1">${o.date || ''}</p>
-                    </div>
-                    <button onclick="deleteOrder(${idx})" class="px-3 py-1 bg-rose-500/20 text-rose-400 rounded-lg text-sm hover:bg-rose-500/30">حذف الطلب</button>
-                </div>
-            `).join('');
-        }
-
-        function deleteOrder(idx) {
-            let orders = JSON.parse(localStorage.getItem('nasro_orders') || '[]');
-            orders.splice(idx, 1);
-            localStorage.setItem('nasro_orders', JSON.stringify(orders));
-            loadOrders();
-        }
-
-        function loadProducts() {
-            const prods = JSON.parse(localStorage.getItem('nasro_products') || '[]');
-            document.getElementById('productCountHeader').innerText = `قائمة المنتجات (${prods.length})`;
-            
-            const tbody = document.getElementById('productsTableBody');
-            if(prods.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-400">لا توجد منتجات مضافة حالياً</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = prods.map((p, idx) => `
-                <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
-                    <td class="p-4 flex items-center gap-3">
-                        <img src="${p.image}" class="w-10 h-10 object-cover rounded-lg border border-gray-700">
-                        <span class="font-bold text-white">${p.name}</span>
-                    </td>
-                    <td class="p-4 text-gray-300">${p.category || 'عام'}</td>
-                    <td class="p-4 text-cyan-400 font-bold">${p.price} د.ج</td>
-                    <td class="p-4"><span class="px-2 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-md text-xs">${p.badge || 'بدون شارة'}</span></td>
-                    <td class="p-4 text-center">
-                        <button onclick="deleteProduct(${idx})" class="px-3 py-1 bg-rose-500/20 text-rose-400 rounded-lg text-xs hover:bg-rose-500/30 transition">
-                            <i class="fa-solid fa-trash"></i> حذف
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function saveProduct(e) {
-            e.preventDefault();
-            const name = document.getElementById('prodName').value;
-            const price = document.getElementById('prodPrice').value;
-            const category = document.getElementById('prodCategory').value;
-            const badge = document.getElementById('prodBadge').value;
-            const urlImg = document.getElementById('prodImage').value;
-            const desc = document.getElementById('prodDesc').value;
-
-            const finalImage = uploadedBase64Img || urlImg;
-
-            if(!finalImage) {
-                alert('يرجى تحديد صورة عبر الرابط أو رفعها من الجهاز!');
-                return;
-            }
-
-            let prods = JSON.parse(localStorage.getItem('nasro_products') || '[]');
-            prods.push({ id: Date.now(), name, price, category, badge, image: finalImage, desc });
-            localStorage.setItem('nasro_products', JSON.stringify(prods));
-            
-            document.getElementById('productForm').reset();
-            uploadedBase64Img = "";
-            loadProducts();
-            alert('تم حفظ ونشر المنتج بنجاح!');
-        }
-
-        function deleteProduct(idx) {
-            if(confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
-                let prods = JSON.parse(localStorage.getItem('nasro_products') || '[]');
-                prods.splice(idx, 1);
-                localStorage.setItem('nasro_products', JSON.stringify(prods));
-                loadProducts();
-            }
         }
 
         window.onload = checkAuth;
