@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة إدارة المتجر الشاملة السحابية - NASRO STORE</title>
+    <title>لوحة إدارة المتجر السحابية - NASRO STORE</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -42,7 +42,7 @@
             const chatId = document.getElementById('telegramChatId').value.trim();
             try {
                 await setDoc(doc(db, "settings", "telegram"), { botToken, chatId, updatedAt: new Date() }, { merge: true });
-                alert('تم حفظ إعدادات تيليجرام سحابياً بنجاح!');
+                alert('تم حفظ إعدادات تيليجرام سحابياً بنجاح لجميع الأدمن!');
             } catch (err) { alert('خطأ: ' + err.message); }
         };
 
@@ -126,7 +126,7 @@
             const price = document.getElementById('prodPrice').value;
             const category = document.getElementById('prodCategory').value;
             const badge = document.getElementById('prodBadge').value;
-            const image = window.uploadedBase64Img || document.getElementById('prodImage').value;
+            const image = document.getElementById('prodImage').value;
             const desc = document.getElementById('prodDesc').value;
 
             if(!image) { alert('حدد صورة!'); return; }
@@ -206,18 +206,37 @@
             <div class="glass-panel rounded-2xl overflow-hidden"><table class="w-full text-right text-sm"><thead class="bg-gray-900 text-gray-400"><tr><th class="p-4">المنتج</th><th class="p-4">القسم</th><th class="p-4">السعر</th><th class="p-4">الشارة</th><th class="p-4 text-center">إجراءات</th></tr></thead><tbody id="productsTableBody"></tbody></table></div>
         </section>
 
+        <!-- قسم الإعدادات (تيليجرام + تغيير كلمة المرور) -->
         <section id="sec-settings" class="hidden space-y-6">
             <div class="glass-panel p-6 rounded-2xl max-w-2xl mx-auto space-y-4">
                 <h3 class="font-bold text-white">إعدادات تيليجرام السحابية</h3>
-                <input type="text" id="telegramToken" dir="ltr" placeholder="Bot Token" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
-                <input type="text" id="telegramChatId" dir="ltr" placeholder="Chat ID" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
-                <button onclick="saveCloudTelegramSettings()" class="w-full bg-sky-500 text-white font-bold py-2.5 rounded-xl">حفظ الإعدادات</button>
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">Bot Token</label>
+                    <input type="text" id="telegramToken" dir="ltr" placeholder="Bot Token" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">Chat ID</label>
+                    <input type="text" id="telegramChatId" dir="ltr" placeholder="Chat ID" class="w-full glass-input rounded-xl px-4 py-2.5 text-white text-left">
+                </div>
+                <button onclick="saveCloudTelegramSettings()" class="w-full bg-sky-500 text-white font-bold py-2.5 rounded-xl">حفظ إعدادات تليجرام</button>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl max-w-2xl mx-auto space-y-4">
+                <h3 class="font-bold text-white">تغيير كلمة مرور الإدارة</h3>
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">كلمة المرور الحالية</label>
+                    <input type="password" id="currPass" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-300 mb-1">كلمة المرور الجديدة</label>
+                    <input type="password" id="newPass" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
+                </div>
+                <button onclick="changePassword()" class="w-full bg-amber-500 text-gray-950 font-bold py-2.5 rounded-xl">تحديث كلمة المرور</button>
             </div>
         </section>
     </div>
 
     <script>
-        window.uploadedBase64Img = "";
         function handleLogin(e) {
             e.preventDefault();
             if (document.getElementById('loginPassword').value === (localStorage.getItem('adminPasswordCustom') || 'admin123')) {
@@ -235,6 +254,18 @@
             document.getElementById(`tab-${tab}`).className = "px-6 py-3 font-medium border-b-2 border-cyan-500 text-cyan-400";
         }
         function toggleProductForm() { document.getElementById('productFormBox').classList.toggle('hidden'); }
+
+        function changePassword() {
+            const currPass = document.getElementById('currPass').value;
+            const newPass = document.getElementById('newPass').value;
+            const currentSavedPass = localStorage.getItem('adminPasswordCustom') || 'admin123';
+            if(!currPass || !newPass) { alert('يرجى ملء جميع الحقول'); return; }
+            if(currPass !== currentSavedPass) { alert('كلمة المرور الحالية غير صحيحة!'); return; }
+            localStorage.setItem('adminPasswordCustom', newPass);
+            alert('تم تغيير كلمة المرور بنجاح!');
+            document.getElementById('currPass').value = '';
+            document.getElementById('newPass').value = '';
+        }
     </script>
 </body>
 </html>
