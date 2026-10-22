@@ -10,13 +10,15 @@
     <style>
         body { font-family: 'Tajawal', sans-serif; background-color: #0b0f19; color: #f3f4f6; }
         .glass-panel { background: rgba(17, 24, 39, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-input { background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .glass-input:focus { border-color: #06b6d4; outline: none; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between">
 
     <!-- نافذة تسجيل الدخول -->
     <div id="loginModal" class="fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 p-4">
-        <div class="glass-panel p-8 rounded-2xl max-w-md w-full border border-cyan-500/20 shadow-2xl shadow-cyan-500/10">
+        <div class="glass-panel p-8 rounded-2xl max-w-md w-full border border-cyan-500/20 shadow-2xl">
             <div class="text-center mb-6">
                 <div class="inline-flex p-4 rounded-full bg-cyan-500/10 text-cyan-400 mb-3 border border-cyan-500/30">
                     <i class="fa-solid fa-user-shield text-3xl"></i>
@@ -27,9 +29,9 @@
             <form id="loginForm" onsubmit="handleLogin(event)" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-300 mb-1">كلمة المرور</label>
-                    <input type="password" id="loginPassword" required class="w-full bg-gray-900/80 border border-gray-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-cyan-500 transition">
+                    <input type="password" id="loginPassword" required class="w-full glass-input rounded-xl px-4 py-3 text-white">
                 </div>
-                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-600 text-gray-950 font-bold py-3 rounded-xl shadow-lg shadow-cyan-500/20 transition">
+                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold py-3 rounded-xl transition">
                     دخول اللوحة
                 </button>
             </form>
@@ -41,57 +43,139 @@
         <!-- الهيدر -->
         <header class="glass-panel rounded-2xl p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center gap-3">
-                <div class="p-3 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
-                    <i class="fa-solid fa-sliders text-2xl text-cyan-400"></i>
+                <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                    <i class="fa-solid fa-sliders text-2xl"></i>
                 </div>
                 <div>
                     <h1 class="text-2xl font-bold text-white">لوحة إدارة المتجر الشاملة</h1>
-                    <p class="text-xs text-gray-400">NASRO STORE - إدارة المنتجات، الطلبات، والإعدادات</p>
+                    <p class="text-xs text-gray-400">NASRO STORE - إدارة المنتجات، الطلبات، والتنبيهات</p>
                 </div>
             </div>
-            <button onclick="logout()" class="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition flex items-center gap-2 text-sm">
+            <button onclick="logout()" class="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl transition text-sm">
                 <i class="fa-solid fa-right-from-bracket"></i> تسجيل الخروج
             </button>
         </header>
 
         <!-- التبويبات -->
-        <div class="flex border-b border-gray-800 mb-8 overflow-x-auto">
-            <button onclick="switchTab('orders')" id="tab-orders" class="px-6 py-3 font-medium border-b-2 border-cyan-500 text-cyan-400 flex items-center gap-2 whitespace-nowrap">
+        <div class="flex border-b border-gray-800 mb-8 overflow-x-auto justify-end">
+            <button onclick="switchTab('orders')" id="tab-orders" class="px-6 py-3 font-medium border-b-2 border-transparent text-gray-400 hover:text-white flex items-center gap-2 whitespace-nowrap">
                 <i class="fa-solid fa-box-archive"></i> الطلبات الواردة
             </button>
-            <button onclick="switchTab('products')" id="tab-products" class="px-6 py-3 font-medium border-b-2 border-transparent text-gray-400 hover:text-white flex items-center gap-2 whitespace-nowrap">
+            <button onclick="switchTab('products')" id="tab-products" class="px-6 py-3 font-medium border-b-2 border-cyan-500 text-cyan-400 flex items-center gap-2 whitespace-nowrap">
                 <i class="fa-solid fa-cubes"></i> إدارة المنتجات
             </button>
             <button onclick="switchTab('settings')" id="tab-settings" class="px-6 py-3 font-medium border-b-2 border-transparent text-gray-400 hover:text-white flex items-center gap-2 whitespace-nowrap">
-                <i class="fa-solid fa-gear"></i> إعدادات الإشعارات والأمان
+                <i class="fa-solid fa-gear"></i> إعدادات الإشعارات وتلغرام
             </button>
         </div>
 
         <!-- قسم الطلبات -->
-        <section id="sec-orders" class="space-y-4">
+        <section id="sec-orders" class="hidden space-y-4">
             <h2 class="text-xl font-bold text-white mb-4">قائمة الطلبات الواردة</h2>
             <div id="ordersContainer" class="space-y-4"></div>
         </section>
 
-        <!-- قسم المنتجات -->
-        <section id="sec-products" class="hidden space-y-6">
-            <div class="glass-panel p-6 rounded-2xl">
-                <h3 class="text-lg font-bold text-white mb-4">إضافة منتج جديد</h3>
-                <form id="productForm" onsubmit="saveProduct(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- قسم المنتجات (الواجهة المطابقة بالكامل للصورة) -->
+        <section id="sec-products" class="space-y-6">
+            <div class="flex justify-between items-center">
+                <button onclick="toggleProductForm()" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-5 py-2.5 rounded-full transition flex items-center gap-2 shadow-lg shadow-cyan-500/20 text-sm">
+                    <i class="fa-solid fa-plus"></i> إضافة منتج جديد
+                </button>
+                <h2 class="text-xl font-bold text-white" id="productCountHeader">قائمة المنتجات (0)</h2>
+            </div>
+
+            <!-- نموذج إضافة المنتجات -->
+            <div id="productFormBox" class="glass-panel p-6 rounded-2xl border border-gray-800 space-y-5">
+                <h3 class="text-lg font-bold text-cyan-400 border-b border-gray-800 pb-3">إضافة منتج جديد</h3>
+                
+                <form id="productForm" onsubmit="saveProduct(event)" class="space-y-4">
                     <input type="hidden" id="prodId">
-                    <input type="text" id="prodName" placeholder="اسم المنتج" required class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
-                    <input type="number" id="prodPrice" placeholder="السعر (د.ج)" required class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
-                    <input type="url" id="prodImage" placeholder="رابط صورة المنتج (URL)" required class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none md:col-span-2">
-                    <textarea id="prodDesc" placeholder="وصف المنتج" required class="bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none md:col-span-2"></textarea>
-                    <button type="submit" class="md:col-span-2 bg-cyan-500 text-gray-950 font-bold py-3 rounded-xl hover:bg-cyan-400 transition">حفظ المنتج</button>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-300 mb-1">اسم المنتج *</label>
+                            <input type="text" id="prodName" required placeholder="مثال: ذراع تحكم PS4 DualShock 4" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-300 mb-1">السعر (د.ج DZD) *</label>
+                            <input type="number" id="prodPrice" required placeholder="مثال: 6800" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-300 mb-1">القسم *</label>
+                            <select id="prodCategory" required class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white bg-gray-900">
+                                <option value="أذرع التحكم (Controllers)">أذرع التحكم (Controllers)</option>
+                                <option value="أجهزة الكونسول (Consoles)">أجهزة الكونسول (Consoles)</option>
+                                <option value="سماعات وملحقات (Headsets)">سماعات وملحقات (Headsets)</option>
+                                <option value="ألعاب واشتراكات (Games)">ألعاب واشتراكات (Games)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-300 mb-1">الشارة الترويجية (Badge)</label>
+                            <select id="prodBadge" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white bg-gray-900">
+                                <option value="">بدون شارة</option>
+                                <option value="جديد">جديد</option>
+                                <option value="الأكثر مبيعاً">الأكثر مبيعاً</option>
+                                <option value="تخفيض">تخفيض</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-300 mb-1">صورة المنتج *</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <span class="text-[10px] text-gray-400 block mb-1">الخيار 1: إدخال رابط الصورة (URL)</span>
+                                <input type="url" id="prodImage" placeholder="https://example.com/image.jpg" class="w-full glass-input rounded-xl px-4 py-2 text-sm text-white">
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-gray-400 block mb-1">الخيار 2: رفع صورة من جهازك</span>
+                                <input type="file" id="prodFile" accept="image/*" onchange="handleFileUpload(event)" class="w-full text-xs text-gray-400 file:mr-2 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:bg-purple-600 file:text-white hover:file:bg-purple-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium text-gray-300 mb-1">وصف المنتج التفصيلي *</label>
+                        <textarea id="prodDesc" rows="3" required placeholder="اكتب مواصفات المنتج..." class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white"></textarea>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-gray-950 font-bold px-6 py-2.5 rounded-xl transition text-sm">
+                            حفظ المنتج
+                        </button>
+                        <button type="button" onclick="toggleProductForm()" class="bg-gray-800 hover:bg-gray-700 text-gray-300 px-6 py-2.5 rounded-xl transition text-sm">
+                            إلغاء
+                        </button>
+                    </div>
                 </form>
             </div>
-            <div id="productsList" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+
+            <!-- جدول عرض المنتجات (مطابق لمكونات الصورة) -->
+            <div class="glass-panel rounded-2xl overflow-hidden border border-gray-800">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-right text-sm">
+                        <thead class="bg-gray-900/80 text-gray-400 border-b border-gray-800">
+                            <tr>
+                                <th class="p-4">المنتج</th>
+                                <th class="p-4">القسم</th>
+                                <th class="p-4">السعر</th>
+                                <th class="p-4">الشارة</th>
+                                <th class="p-4 text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                            <!-- المخرجات الديناميكية تمشي هنا -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <!-- قسم الإعدادات وتغيير كلمة السر -->
         <section id="sec-settings" class="hidden space-y-6">
-            <!-- ربط تلغرام -->
             <div class="glass-panel p-6 rounded-2xl max-w-2xl mx-auto space-y-4">
                 <div class="flex items-center gap-3 border-b border-gray-800 pb-4">
                     <i class="fa-brands fa-telegram text-3xl text-sky-400"></i>
@@ -102,18 +186,17 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">Bot Token</label>
-                    <input type="text" id="telegramToken" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
+                    <input type="text" id="telegramToken" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">Chat ID</label>
-                    <input type="text" id="telegramChatId" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
+                    <input type="text" id="telegramChatId" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
                 </div>
-                <button onclick="saveTelegramSettings()" class="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-3 rounded-xl transition">
+                <button onclick="saveTelegramSettings()" class="w-full bg-sky-500 hover:bg-sky-400 text-white font-bold py-2.5 rounded-xl transition">
                     حفظ إعدادات تلغرام
                 </button>
             </div>
 
-            <!-- تغيير كلمة المرور -->
             <div class="glass-panel p-6 rounded-2xl max-w-2xl mx-auto space-y-4">
                 <div class="flex items-center gap-3 border-b border-gray-800 pb-4">
                     <i class="fa-solid fa-key text-3xl text-amber-400"></i>
@@ -124,13 +207,13 @@
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">كلمة المرور الحالية</label>
-                    <input type="password" id="currPass" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
+                    <input type="password" id="currPass" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
                 </div>
                 <div>
                     <label class="block text-sm text-gray-300 mb-1">كلمة المرور الجديدة</label>
-                    <input type="password" id="newPass" class="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white focus:border-cyan-500 outline-none">
+                    <input type="password" id="newPass" class="w-full glass-input rounded-xl px-4 py-2.5 text-white">
                 </div>
-                <button onclick="changePassword()" class="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold py-3 rounded-xl transition">
+                <button onclick="changePassword()" class="w-full bg-amber-500 hover:bg-amber-400 text-gray-950 font-bold py-2.5 rounded-xl transition">
                     تحديث كلمة المرور
                 </button>
             </div>
@@ -138,6 +221,8 @@
     </div>
 
     <script>
+        let uploadedBase64Img = "";
+
         function handleLogin(e) {
             e.preventDefault();
             const pass = document.getElementById('loginPassword').value;
@@ -173,6 +258,22 @@
             });
             document.getElementById(`sec-${tab}`).classList.remove('hidden');
             document.getElementById(`tab-${tab}`).className = "px-6 py-3 font-medium border-b-2 border-cyan-500 text-cyan-400 flex items-center gap-2 whitespace-nowrap";
+        }
+
+        function toggleProductForm() {
+            const box = document.getElementById('productFormBox');
+            box.classList.toggle('hidden');
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    uploadedBase64Img = evt.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
         }
 
         function loadData() {
@@ -243,14 +344,29 @@
 
         function loadProducts() {
             const prods = JSON.parse(localStorage.getItem('nasro_products') || '[]');
-            const list = document.getElementById('productsList');
-            list.innerHTML = prods.map((p, idx) => `
-                <div class="glass-panel p-4 rounded-xl space-y-2">
-                    <img src="${p.image}" class="w-full h-32 object-cover rounded-lg">
-                    <h4 class="font-bold text-white">${p.name}</h4>
-                    <p class="text-cyan-400 text-sm font-bold">${p.price} د.ج</p>
-                    <button onclick="deleteProduct(${idx})" class="w-full py-2 bg-rose-500/20 text-rose-400 rounded-lg text-xs hover:bg-rose-500/30">حذف المنتج</button>
-                </div>
+            document.getElementById('productCountHeader').innerText = `قائمة المنتجات (${prods.length})`;
+            
+            const tbody = document.getElementById('productsTableBody');
+            if(prods.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-gray-400">لا توجد منتجات مضافة حالياً</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = prods.map((p, idx) => `
+                <tr class="border-b border-gray-800/50 hover:bg-gray-800/30 transition">
+                    <td class="p-4 flex items-center gap-3">
+                        <img src="${p.image}" class="w-10 h-10 object-cover rounded-lg border border-gray-700">
+                        <span class="font-bold text-white">${p.name}</span>
+                    </td>
+                    <td class="p-4 text-gray-300">${p.category || 'عام'}</td>
+                    <td class="p-4 text-cyan-400 font-bold">${p.price} د.ج</td>
+                    <td class="p-4"><span class="px-2 py-1 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-md text-xs">${p.badge || 'بدون شارة'}</span></td>
+                    <td class="p-4 text-center">
+                        <button onclick="deleteProduct(${idx})" class="px-3 py-1 bg-rose-500/20 text-rose-400 rounded-lg text-xs hover:bg-rose-500/30 transition">
+                            <i class="fa-solid fa-trash"></i> حذف
+                        </button>
+                    </td>
+                </tr>
             `).join('');
         }
 
@@ -258,23 +374,35 @@
             e.preventDefault();
             const name = document.getElementById('prodName').value;
             const price = document.getElementById('prodPrice').value;
-            const image = document.getElementById('prodImage').value;
+            const category = document.getElementById('prodCategory').value;
+            const badge = document.getElementById('prodBadge').value;
+            const urlImg = document.getElementById('prodImage').value;
             const desc = document.getElementById('prodDesc').value;
 
+            const finalImage = uploadedBase64Img || urlImg;
+
+            if(!finalImage) {
+                alert('يرجى تحديد صورة عبر الرابط أو رفعها من الجهاز!');
+                return;
+            }
+
             let prods = JSON.parse(localStorage.getItem('nasro_products') || '[]');
-            prods.push({ id: Date.now(), name, price, image, desc });
+            prods.push({ id: Date.now(), name, price, category, badge, image: finalImage, desc });
             localStorage.setItem('nasro_products', JSON.stringify(prods));
             
             document.getElementById('productForm').reset();
+            uploadedBase64Img = "";
             loadProducts();
-            alert('تم حفظ المنتج بنجاح!');
+            alert('تم حفظ ونشر المنتج بنجاح!');
         }
 
         function deleteProduct(idx) {
-            let prods = JSON.parse(localStorage.getItem('nasro_products') || '[]');
-            prods.splice(idx, 1);
-            localStorage.setItem('nasro_products', JSON.stringify(prods));
-            loadProducts();
+            if(confirm('هل أنت متأكد من حذف هذا المنتج؟')) {
+                let prods = JSON.parse(localStorage.getItem('nasro_products') || '[]');
+                prods.splice(idx, 1);
+                localStorage.setItem('nasro_products', JSON.stringify(prods));
+                loadProducts();
+            }
         }
 
         window.onload = checkAuth;
